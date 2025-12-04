@@ -1,0 +1,22 @@
+body { background-color: #020617; color: #e2e8f0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+.font-serif { font-family: 'Playfair Display', serif; }
+.font-cinzel { font-family: 'Cinzel', serif; }
+
+.bg-universe { background: radial-gradient(circle at 50% 0%, #172554 0%, #020617 70%); min-height: 100vh; }
+.glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); }
+.glass-gold { background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(234, 179, 8, 0.3); box-shadow: 0 4px 30px rgba(234, 179, 8, 0.1); }
+
+.input-dark { background: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.75rem; width: 100%; outline: none; }
+.input-dark:focus { border-color: #eab308; }
+.input-disabled { background: #1e293b; color: #64748b; border: 1px solid #334155; cursor: not-allowed; }
+
+.btn-active:active { transform: scale(0.97); }
+.fade-in { animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.selected-item { border-color: #eab308; background-color: rgba(234, 179, 8, 0.1); }
+
+/* Scrollbar para Log */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
