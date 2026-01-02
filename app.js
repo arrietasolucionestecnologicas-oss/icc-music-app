@@ -1,5 +1,10 @@
+/**
+ * APP.JS - MINISTERIO DE ALABANZA
+ * Integridad Absoluta: Código Completo
+ * Actualización: Campo Líder Libre y Jornada Tarde
+ */
+
 // ================= CONFIGURACIÓN =================
-// 👇👇 TU URL REAL 👇👇
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyevrQgX1ifj-hKDnkZBXuoSA_M6blg3zz3rbC-9In7QrXbn5obsCxZZbDj7sl5aQMxxA/exec";
 
 // ================= PUENTE DE CONEXIÓN =================
@@ -44,7 +49,6 @@ const Icon = {
     Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
     Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`,
     Activity: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-    // ICONOS NUEVOS
     Wrench: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
     History: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`,
     Mic: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`,
@@ -723,7 +727,7 @@ function HistoryView({ data }) {
     `;
 }
 
-// --- SERVICE EDITOR (COMPONENTE ORIGINAL COMPLETO) ---
+// --- SERVICE EDITOR (MODIFICADO: LIDER LIBRE) ---
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
@@ -785,6 +789,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel }) {
                             <input list="jornada-opts" className=${isAdmin ? "input-dark" : "input-dark input-disabled"} value=${form.jornada} onInput=${e => isAdmin && setForm({...form, jornada: e.target.value})} disabled=${!isAdmin} placeholder="Jornada" />
                             <datalist id="jornada-opts">
                                 <option value="Mañana"/>
+                                <option value="Tarde"/>
                                 <option value="Noche"/>
                                 <option value="Vigilia"/>
                                 <option value="Ayuno"/>
@@ -792,12 +797,16 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel }) {
                         </div>
                         <select className=${isAdmin ? "input-dark" : "input-dark input-disabled"} value=${form.estado} onChange=${e => isAdmin && setForm({...form, estado: e.target.value})} disabled=${!isAdmin}><option>Borrador</option><option>Oficial</option></select>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        ${data.equipo.filter(e => e.rol === 'Líder').map(l => html`
-                            <button onClick=${() => isAdmin && setForm({...form, lider: l.nombre})} className=${`p-3 rounded-xl text-xs font-bold border ${form.lider === l.nombre ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'} ${!isAdmin ? 'cursor-not-allowed opacity-70' : ''}`}>
-                                <${SafeText} content=${l.nombre} />
-                            </button>
-                        `)}
+                    
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase font-bold mb-1 block">Director / Líder (Libre)</label>
+                        <input 
+                            className=${isAdmin ? "input-dark" : "input-dark input-disabled"} 
+                            value=${form.lider} 
+                            onInput=${e => isAdmin && setForm({...form, lider: e.target.value})} 
+                            readOnly=${!isAdmin}
+                            placeholder="Escribe quién dirige (ej: Juan y Pedro)" 
+                        />
                     </div>
                 </div>
             `}
