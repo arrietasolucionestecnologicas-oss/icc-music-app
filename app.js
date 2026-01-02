@@ -1,7 +1,6 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
- * Integridad Absoluta: Código Completo
- * Actualización: Campo Líder Libre y Jornada Tarde
+ * Actualización: Buscador de personas, PNG Screenshot, Edición de Equipo
  */
 
 // ================= CONFIGURACIÓN =================
@@ -25,7 +24,7 @@ async function callGasApi(action, payload = {}, password = "") {
 
 // ================= INICIO DE TU CÓDIGO REACT ORIGINAL =================
 const html = htm.bind(React.createElement);
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 // --- ICONOS SVG ---
 const Icon = {
@@ -54,7 +53,8 @@ const Icon = {
     Mic: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`,
     Guitar: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><circle cx="12" cy="18" r="4"/><path d="M12 12v3"/></svg>`,
     Edit: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
-    Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+    Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    Download: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`
 };
 
 // --- SEGURIDAD Y UTILIDADES CORE ---
@@ -191,7 +191,61 @@ function Manual({ onClose }) {
     `;
 }
 
-// --- NUEVO: MODAL ELEGANTE DETALLE DE SERVICIO ---
+// --- COMPONENTE: SELECTOR DE EQUIPO CON BÚSQUEDA ---
+function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeholder, icon }) {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState([]);
+
+    const handleSearch = (e) => {
+        const val = e.target.value;
+        setQuery(val);
+        if (val.length > 0) {
+            const filtered = allUsers.filter(u => 
+                u.nombre.toLowerCase().includes(val.toLowerCase()) && 
+                !selectedUsers.includes(u.nombre)
+            );
+            setResults(filtered);
+        } else {
+            setResults([]);
+        }
+    };
+
+    const handleSelect = (user) => {
+        onAdd(user.nombre);
+        setQuery("");
+        setResults([]);
+    };
+
+    return html`
+        <div className="mb-4">
+            <div className="relative">
+                <input className="input-dark pl-10" placeholder=${placeholder} value=${query} onInput=${handleSearch} />
+                <div className="absolute left-3 top-3 text-slate-500">${icon}</div>
+            </div>
+            
+            ${results.length > 0 && html`
+                <div className="bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-40 overflow-y-auto absolute z-10 w-full shadow-xl">
+                    ${results.map(u => html`
+                        <div onClick=${() => handleSelect(u)} className="p-2 hover:bg-slate-700 cursor-pointer text-sm text-white border-b border-slate-700 last:border-0">
+                            ${u.nombre}
+                        </div>
+                    `)}
+                </div>
+            `}
+
+            <div className="mt-2 flex flex-wrap gap-2">
+                ${selectedUsers.map(u => html`
+                    <div className="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs text-slate-300 flex items-center gap-2">
+                        ${u}
+                        <button onClick=${() => onRemove(u)} className="text-red-400 hover:text-red-300">✕</button>
+                    </div>
+                `)}
+            </div>
+        </div>
+    `;
+}
+
+// --- MODAL ELEGANTE DETALLE DE SERVICIO ---
 function ServiceDetailModal({ service, teamData, onClose }) {
     if(!service) return null;
     
@@ -498,7 +552,7 @@ function App() {
     `;
 }
 
-// --- LISTA DE PRÓXIMOS SERVICIOS (MODIFICADA PARA ABRIR MODAL) ---
+// --- LISTA DE PRÓXIMOS SERVICIOS ---
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
     const upcoming = servicios
@@ -569,7 +623,6 @@ function MaintenanceView({ data, isAdmin, refresh }) {
         return 'text-green-500';
     };
 
-    // Acciones Mantenimiento
     const handleSaveMant = () => {
         if(!selectedEq || !formMant.descripcion) return alert("Faltan datos");
         const payload = { ...formMant, idEquipo: selectedEq.id };
@@ -580,7 +633,6 @@ function MaintenanceView({ data, isAdmin, refresh }) {
         });
     };
 
-    // Acciones Equipo (Inventario)
     const handleSaveEq = () => {
         if(!formEq.nombre) return alert("Nombre obligatorio");
         callGasApi('saveEquipment', formEq, '1234').then(() => {
@@ -686,7 +738,7 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     `;
 }
 
-// --- VISTA NUEVA: HISTORIAL ---
+// --- VISTA HISTORIAL ---
 function HistoryView({ data }) {
     return html`
         <div className="space-y-4 pb-12 fade-in">
@@ -727,18 +779,25 @@ function HistoryView({ data }) {
     `;
 }
 
-// --- SERVICE EDITOR (MODIFICADO: LIDER LIBRE) ---
+// --- SERVICE EDITOR (CON BÚSQUEDA Y LIDER LIBRE) ---
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
     const [showCalendarRef, setShowCalendarRef] = useState(false);
 
-    // --- MANEJO DE LISTAS ---
-    const toggleList = (listName, item) => {
-        if (!isAdmin) return;
-        const list = form[listName] || [];
-        const exists = list.includes(item);
-        setForm({ ...form, [listName]: exists ? list.filter(i => i !== item) : [...list, item] });
+    // Funciones para añadir desde el buscador
+    const addCorista = (nombre) => {
+        if(!form.coristas.includes(nombre)) setForm({...form, coristas: [...form.coristas, nombre]});
+    };
+    const removeCorista = (nombre) => {
+        setForm({...form, coristas: form.coristas.filter(c => c !== nombre)});
+    };
+    
+    const addMusico = (nombre) => {
+        if(!form.musicos.includes(nombre)) setForm({...form, musicos: [...form.musicos, nombre]});
+    };
+    const removeMusico = (nombre) => {
+        setForm({...form, musicos: form.musicos.filter(m => m !== nombre)});
     };
 
     const copySetlist = () => {
@@ -812,9 +871,42 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel }) {
             `}
 
             ${tab === 'EQUIPO' && html`
-                <div className="space-y-4">
-                    <div><p className="text-xs text-yellow-500 uppercase font-bold mb-2">Coristas</p><div className="space-y-2">${data.equipo.filter(e => e.rol === 'Corista').map(c => html`<div onClick=${() => toggleList('coristas', c.nombre)} className=${`p-3 rounded-xl border flex justify-between cursor-pointer ${form.coristas.includes(c.nombre) ? 'bg-slate-800 border-yellow-500' : 'border-slate-800 bg-slate-900/50'} ${!isAdmin ? 'cursor-not-allowed' : ''}`}><span className="text-sm"><${SafeText} content=${c.nombre}/></span>${form.coristas.includes(c.nombre) && html`<${Icon.Check}/>`}</div>`)}</div></div>
-                    <div><p className="text-xs text-blue-500 uppercase font-bold mb-2">Músicos</p><div className="space-y-2">${data.equipo.filter(e => e.rol === 'Músico' || e.rol === 'Líder').map(m => html`<div onClick=${() => toggleList('musicos', m.nombre)} className=${`p-3 rounded-xl border flex justify-between cursor-pointer ${form.musicos.includes(m.nombre) ? 'bg-slate-800 border-blue-500' : 'border-slate-800 bg-slate-900/50'} ${!isAdmin ? 'cursor-not-allowed' : ''}`}><span className="text-sm"><${SafeText} content=${m.nombre}/> <span className="text-[10px] text-slate-500">(${m.instrumento})</span></span>${form.musicos.includes(m.nombre) && html`<${Icon.Check}/>`}</div>`)}</div></div>
+                <div className="space-y-6">
+                    <div>
+                        <p className="text-xs text-yellow-500 uppercase font-bold mb-2">Coristas</p>
+                        ${isAdmin ? html`
+                            <${SearchableUserSelect} 
+                                allUsers=${data.equipo.filter(e => e.rol === 'Corista' || e.rol === 'Líder')}
+                                selectedUsers=${form.coristas}
+                                onAdd=${addCorista}
+                                onRemove=${removeCorista}
+                                placeholder="Añadir voz..."
+                                icon=${html`<${Icon.Mic}/>`}
+                            />
+                        ` : html`
+                            <div className="flex flex-wrap gap-2">
+                                ${form.coristas.map(c => html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-yellow-500/30">${c}</div>`)}
+                            </div>
+                        `}
+                    </div>
+
+                    <div>
+                        <p className="text-xs text-blue-500 uppercase font-bold mb-2">Músicos</p>
+                        ${isAdmin ? html`
+                            <${SearchableUserSelect} 
+                                allUsers=${data.equipo.filter(e => e.rol === 'Músico' || e.rol === 'Líder')}
+                                selectedUsers=${form.musicos}
+                                onAdd=${addMusico}
+                                onRemove=${removeMusico}
+                                placeholder="Añadir músico..."
+                                icon=${html`<${Icon.Guitar}/>`}
+                            />
+                        ` : html`
+                            <div className="flex flex-wrap gap-2">
+                                ${form.musicos.map(m => html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-blue-500/30">${m}</div>`)}
+                            </div>
+                        `}
+                    </div>
                 </div>
             `}
 
@@ -870,13 +962,14 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel }) {
     `;
 }
 
-// --- MONTH POSTER ---
+// --- MONTH POSTER (CON PNG DOWNLOAD) ---
 function MonthPoster({ servicios }) {
     const [offset, setOffset] = useState(0);
     const date = new Date();
     date.setMonth(date.getMonth() + offset);
     const monthName = date.toLocaleDateString('es-CO', { month: 'long' });
     const year = date.getFullYear();
+    const posterRef = useRef(null);
     
     const safeServicios = Array.isArray(servicios) ? servicios : [];
     const monthServices = safeServicios.filter(s => {
@@ -885,17 +978,22 @@ function MonthPoster({ servicios }) {
         return d.getMonth() === date.getMonth() && d.getFullYear() === year;
     }).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
 
-    const copyText = () => {
-        let t = `*🗓️ CRONOGRAMA ${monthName.toUpperCase()}*\nICC Villa Rosario\n\n`;
-        monthServices.forEach(s => {
-            const d = new Date(s.fecha + "T00:00:00");
-            const dia = d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' });
-            const coros = safeJoin(s.coristas) || 'Pendiente';
-            const musics = safeJoin(s.musicos) || 'Pendiente';
-            t += `📌 *${dia.toUpperCase()}* (${s.jornada})\n👤 Lider: ${s.lider}\n🎤 Coros: ${coros}\n🎹 Música: ${musics}\n\n`;
-        });
-        navigator.clipboard.writeText(t);
-        alert("¡Copiado para WhatsApp!");
+    const generatePng = async () => {
+        if (posterRef.current) {
+            try {
+                // Truco para que capture bien el fondo y estilos
+                const canvas = await html2canvas(posterRef.current, {
+                    backgroundColor: "#0f172a", // Color de fondo del tema
+                    scale: 2 // Mayor calidad
+                });
+                const link = document.createElement('a');
+                link.download = `Cronograma-${monthName}-${year}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            } catch (err) {
+                alert("Error generando imagen: " + err);
+            }
+        }
     };
 
     return html`
@@ -905,9 +1003,16 @@ function MonthPoster({ servicios }) {
                 <span className="font-bold uppercase text-sm">${monthName} ${year}</span>
                 <button onClick=${() => setOffset(offset + 1)} className="p-2"><${Icon.ArrowRight}/></button>
             </div>
-            <button onClick=${copyText} className="w-full bg-green-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active"><${Icon.Copy} /> Copiar Resumen WhatsApp</button>
-            <div className="glass-gold p-6 rounded-xl relative overflow-hidden">
-                <div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div>
+            
+            <button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active">
+                <${Icon.Download} /> Guardar Imagen (PNG)
+            </button>
+
+            <div ref=${posterRef} id="poster-container" className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900">
+                <div className="text-center border-b border-yellow-500/30 pb-4 mb-4">
+                    <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p>
+                    <h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2>
+                </div>
                 <div className="space-y-6">
                     ${monthServices.length === 0 && html`<p className="text-center text-slate-500 text-xs italic">Sin programación oficial.</p>`}
                     ${monthServices.map(s => {
@@ -928,33 +1033,76 @@ function MonthPoster({ servicios }) {
                             </div>`;
                     })}
                 </div>
+                <div className="mt-6 text-center opacity-50">
+                    <p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p>
+                </div>
             </div>
         </div>
     `;
 }
 
-// --- TEAM MANAGER ---
+// --- TEAM MANAGER (CON EDICIÓN) ---
 function TeamManager({ data, isAdmin, refresh }) {
-    const [form, setForm] = useState({ nombre: '', rol: 'Corista', instrumento: '' });
+    const [form, setForm] = useState({ id: '', nombre: '', rol: 'Corista', instrumento: '' });
+    const [isEditing, setIsEditing] = useState(false);
     
-    const save = () => { if (!form.nombre) return; callGasApi('saveMember', form, '1234').then(() => { setForm({ nombre: '', rol: 'Corista', instrumento: '' }); refresh(); }); };
+    const save = () => { 
+        if (!form.nombre) return; 
+        callGasApi('saveMember', form, '1234').then(() => { 
+            setForm({ id: '', nombre: '', rol: 'Corista', instrumento: '' }); 
+            setIsEditing(false);
+            refresh(); 
+        }); 
+    };
+    
+    const edit = (member) => {
+        setForm({ ...member });
+        setIsEditing(true);
+        window.scrollTo(0,0);
+    };
+
+    const cancelEdit = () => {
+        setForm({ id: '', nombre: '', rol: 'Corista', instrumento: '' }); 
+        setIsEditing(false);
+    };
+
     const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id: id}, '1234').then(refresh); };
 
     return html`
         <div className="space-y-6">
             ${isAdmin ? html`
                 <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
-                    <h3 className="text-xs font-bold text-teal-400 uppercase">Nuevo Integrante</h3>
+                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
                     <input className="input-dark" placeholder="Nombre completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
                     <div className="grid grid-cols-2 gap-2">
                         <select className="input-dark" value=${form.rol} onChange=${e => setForm({...form, rol: e.target.value})}><option>Líder</option><option>Corista</option><option>Músico</option></select>
                         <input className="input-dark" placeholder="Instrumento" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
                     </div>
-                    <button onClick=${save} className="w-full bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">Guardar</button>
+                    <div className="flex gap-2">
+                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
+                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
+                    </div>
                 </div>
             ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Solo el Director puede editar el equipo.</div>`}
+            
             <div className="space-y-2 pb-10">
-                ${data.map(m => html`<div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center"><div className="flex items-center gap-3"><div className=${`w-1 h-8 rounded-full ${m.rol==='Líder'?'bg-yellow-500':(m.rol==='Músico'?'bg-purple-500':'bg-blue-500')}`}></div><div><div className="font-bold text-sm text-white"><${SafeText} content=${m.nombre} /></div><div className="text-[10px] text-slate-400 uppercase"><${SafeText} content=${m.rol} /> <${SafeText} content=${m.instrumento ? '• ' + m.instrumento : ''} /></div></div></div>${isAdmin && html`<button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button>`}</div>`)}
+                ${data.map(m => html`
+                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className=${`w-1 h-8 rounded-full ${m.rol==='Líder'?'bg-yellow-500':(m.rol==='Músico'?'bg-purple-500':'bg-blue-500')}`}></div>
+                            <div>
+                                <div className="font-bold text-sm text-white"><${SafeText} content=${m.nombre} /></div>
+                                <div className="text-[10px] text-slate-400 uppercase"><${SafeText} content=${m.rol} /> <${SafeText} content=${m.instrumento ? '• ' + m.instrumento : ''} /></div>
+                            </div>
+                        </div>
+                        ${isAdmin && html`
+                            <div className="flex gap-2">
+                                <button onClick=${() => edit(m)} className="text-slate-400 p-2 hover:text-white"><${Icon.Edit}/></button>
+                                <button onClick=${() => remove(m.id)} className="text-red-400 p-2 hover:text-white"><${Icon.Trash}/></button>
+                            </div>
+                        `}
+                    </div>
+                `)}
             </div>
         </div>
     `;
