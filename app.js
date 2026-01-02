@@ -1,6 +1,6 @@
 // ================= CONFIGURACIÓN =================
 // 👇👇 ¡PEGA TU URL DE APPS SCRIPT AQUÍ ABAJO! 👇👇
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbygG.../exec"; 
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyevrQgX1ifj-hKDnkZBXuoSA_M6blg3zz3rbC-9In7QrXbn5obsCxZZbDj7sl5aQMxxA/exec"; 
 
 // ================= PUENTE DE CONEXIÓN =================
 async function callGasApi(action, payload = {}, password = "") {
