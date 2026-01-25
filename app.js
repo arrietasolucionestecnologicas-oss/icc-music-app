@@ -1,18 +1,19 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
- * Version 4.0 - FINAL STABLE
- * Fixes: ReferenceError, UX Performance, Filter Merging
+ * Integridad Absoluta: Código Completo
+ * Versión 5.0: Estructura Blindada contra ReferenceErrors
  */
 
+// ================= CONFIGURACIÓN =================
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyevrQgX1ifj-hKDnkZBXuoSA_M6blg3zz3rbC-9In7QrXbn5obsCxZZbDj7sl5aQMxxA/exec";
 
-// ================= PUENTE API Y TOAST SYSTEM =================
+// ================= PUENTE DE CONEXIÓN =================
 let showToastCallback = null;
 
 async function callGasApi(action, payload = {}, password = "") {
     try {
         if(showToastCallback && (action.startsWith('save') || action.startsWith('delete'))) {
-            showToastCallback("Guardando...", "loading");
+            showToastCallback("Procesando...", "loading");
         }
         
         const response = await fetch(GAS_API_URL, {
@@ -23,7 +24,7 @@ async function callGasApi(action, payload = {}, password = "") {
         const result = await response.json();
         
         if(showToastCallback && result.status === 'success') {
-            showToastCallback("¡Guardado Exitoso!", "success");
+            showToastCallback("¡Acción Exitosa!", "success");
         } else if (showToastCallback && result.status !== 'success') {
             showToastCallback("Error: " + result.message, "error");
         }
@@ -31,14 +32,16 @@ async function callGasApi(action, payload = {}, password = "") {
         return result;
     } catch (error) {
         if(showToastCallback) showToastCallback("Error de Red", "error");
+        console.error("API Error:", error);
         return { status: "error", message: "Sin conexión" };
     }
 }
 
-// ================= UTILS & ICONS =================
+// ================= INICIO LÓGICA REACT =================
 const html = htm.bind(React.createElement);
 const { useState, useEffect, useRef } = React;
 
+// --- ICONOS SVG ---
 const Icon = {
     ArrowLeft: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
     ArrowRight: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`,
@@ -72,6 +75,27 @@ const Icon = {
     BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
 };
 
+// ================= COMPONENTES BASE (IMPORTANTE: DEFINIDOS PRIMERO) =================
+
+// 1. SPLASH SCREEN (DEFINIDA AL INICIO PARA EVITAR REFERENCE ERROR)
+const SplashScreen = () => {
+    return html`
+        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
+            <div className="mb-6 animate-pulse text-yellow-500">
+                <${Icon.Music} style=${{width: 60, height: 60}} />
+            </div>
+            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
+            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
+            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
+                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
+                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1">A.S.T. ARRIETA SOLUCIONES TECNOLOGICAS</p>
+            </div>
+        </div>
+    `;
+};
+
+// 2. UTILIDADES
 const SafeText = ({ content }) => {
     if (content === null || content === undefined) return "";
     return String(content);
@@ -107,8 +131,7 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// ================= COMPONENTES =================
-
+// 3. TOAST
 function Toast({ message, type }) {
     const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
     return html`
@@ -121,6 +144,7 @@ function Toast({ message, type }) {
     `;
 }
 
+// 4. MANUAL
 function Manual({ onClose }) {
     return html`
         <div className="fixed inset-0 bg-black/90 z-[90] flex items-center justify-center p-4 fade-in">
@@ -139,6 +163,7 @@ function Manual({ onClose }) {
     `;
 }
 
+// 5. SEARCH SELECT
 function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeholder, icon }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
@@ -178,6 +203,8 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
+// ================= MANAGERS Y VISTAS =================
+
 function TeamManager({ data, isAdmin, refresh }) {
     const [form, setForm] = useState({ id: '', nombre: '', rol: 'Corista', instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
@@ -195,8 +222,8 @@ function TeamManager({ data, isAdmin, refresh }) {
         <div className="space-y-6">
             ${isAdmin ? html`
                 <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
-                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
-                    <input className="input-dark" placeholder="Nombre completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
+                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar' : 'Nuevo'}</h3>
+                    <input className="input-dark" placeholder="Nombre" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
                     <div className="grid grid-cols-2 gap-2">
                         <select className="input-dark" value=${form.rol} onChange=${e => setForm({...form, rol: e.target.value})}><option>Líder</option><option>Corista</option><option>Músico</option></select>
                         <input className="input-dark" placeholder="Instrumento" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
@@ -213,9 +240,9 @@ function TeamManager({ data, isAdmin, refresh }) {
                     <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <div className=${`w-1 h-8 rounded-full ${m.rol==='Líder'?'bg-yellow-500':(m.rol==='Músico'?'bg-purple-500':'bg-blue-500')}`}></div>
-                            <div><div className="font-bold text-sm text-white">${m.nombre}</div><div className="text-[10px] text-slate-400 uppercase">${m.rol} ${m.instrumento ? '• ' + m.instrumento : ''}</div></div>
+                            <div><div className="font-bold text-sm text-white">${m.nombre}</div><div className="text-[10px] text-slate-400 uppercase">${m.rol}</div></div>
                         </div>
-                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2 hover:text-white"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2 hover:text-white"><${Icon.Trash}/></button></div>`}
+                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
                     </div>
                 `)}
             </div>
@@ -262,12 +289,12 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                             <select className="input-dark text-sm" value=${item.ritmo} onChange=${e => updateBatchRow(item.id, 'ritmo', e.target.value)}><option>Rápida</option><option>Lenta</option><option>Ministración</option></select>
                             <input className="input-dark text-sm" placeholder="Tono" value=${item.tono} onInput=${e => updateBatchRow(item.id, 'tono', e.target.value)} />
                         </div>
-                        ${batchList.length > 1 && html`<button onClick=${() => removeBatchRow(item.id)} className="text-red-400 text-xs mt-2 underline">Eliminar esta</button>`}
+                        ${batchList.length > 1 && html`<button onClick=${() => removeBatchRow(item.id)} className="text-red-400 text-xs mt-2 underline">Eliminar</button>`}
                     </div>
                 `)}
-                <button onClick=${addBatchRow} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:bg-slate-800 transition">+ Agregar otra fila</button>
+                <button onClick=${addBatchRow} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:bg-slate-800 transition">+ Agregar Fila</button>
             </div>
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50"><button onClick=${saveBatch} className="w-full py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">GUARDAR TODAS (${batchList.length})</button></div>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50"><button onClick=${saveBatch} className="w-full py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">GUARDAR TODAS</button></div>
         </div>
     `;
 
@@ -281,6 +308,8 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                 <select className="input-dark" value=${song.ritmo} onChange=${e => setSong({...song, ritmo: e.target.value})}><option>Rápida</option><option>Lenta</option><option>Ministración</option></select>
                 <input className="input-dark" placeholder="Tono" value=${getBestTone(song.tono, filterVocalist !== "TODOS" ? filterVocalist : "Original")} onInput=${e => setSong({...song, tono: e.target.value})} />
             </div>
+            <input className="input-dark" placeholder="Link YouTube" value=${song.link} onInput=${e => setSong({...song, link: e.target.value})} />
+            <textarea className="input-dark h-32" placeholder="Letra..." value=${song.letra} onInput=${e => setSong({...song, letra: e.target.value})}></textarea>
             <button onClick=${saveSingle} className="w-full bg-blue-600 py-3 rounded-lg font-bold shadow-lg btn-active">Guardar</button>
         </div>
     `;
@@ -327,10 +356,10 @@ function MonthPoster({ servicios }) {
             try {
                 const canvas = await html2canvas(posterRef.current, { backgroundColor: "#0f172a", scale: 2 });
                 const link = document.createElement('a');
-                link.download = `Cronograma-${monthName}-${year}.png`;
+                link.download = `Cronograma-${monthName}.png`;
                 link.href = canvas.toDataURL();
                 link.click();
-            } catch (err) { alert("Error generando imagen"); }
+            } catch (err) { alert("Error"); }
         }
     };
 
@@ -340,9 +369,14 @@ function MonthPoster({ servicios }) {
                 <button onClick=${() => setOffset(offset - 1)} className="p-2"><${Icon.ArrowLeft}/></button><span className="font-bold uppercase text-sm">${monthName} ${year}</span><button onClick=${() => setOffset(offset + 1)} className="p-2"><${Icon.ArrowRight}/></button>
             </div>
             <button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active"><${Icon.Download} /> Guardar Imagen (PNG)</button>
-            <div ref=${posterRef} id="poster-container" className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900">
+            <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900">
                 <div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div>
-                <div className="space-y-6">${monthServices.map(s => { const d = new Date(s.fecha + "T00:00:00"); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div>
+                <div className="space-y-6">
+                    ${monthServices.map(s => {
+                        const d = new Date(s.fecha + "T00:00:00");
+                        return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`;
+                    })}
+                </div>
                 <div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div>
             </div>
         </div>
@@ -401,9 +435,7 @@ function MaintenanceView({ data, isAdmin, refresh }) {
 
     const getStatusColor = (fechaProx) => {
         if(!fechaProx) return 'text-slate-500';
-        const today = new Date();
-        const next = new Date(fechaProx);
-        const days = (next - today) / (1000 * 60 * 60 * 24);
+        const days = (new Date(fechaProx) - new Date()) / (1000 * 60 * 60 * 24);
         if (days < 0) return 'text-red-500 font-bold'; 
         if (days < 30) return 'text-yellow-500'; 
         return 'text-green-500';
@@ -500,10 +532,10 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
             `}
             ${tab === 'REPERTORIO' && html`
                 <div className="space-y-4">
-                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => document.getElementById('song-search').focus()} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition"><div className="bg-yellow-600 rounded-full p-3 mb-3 inline-block shadow-lg"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg">AGREGAR CANCIONES</h3></div>`}
+                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => document.getElementById('song-search-input').focus()} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition group flex flex-col items-center justify-center gap-3"><div className="bg-yellow-600 rounded-full p-3 mb-3 shadow-lg group-hover:scale-110 transition"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg uppercase tracking-widest">AGREGAR CANCIONES</h3></div>`}
                     <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                         ${form.repertorio.map((r, idx) => html`
-                            <div key=${idx} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center border-l-2 border-green-500">
+                            <div key=${idx} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center border-l-2 border-green-500 group">
                                 <div className="flex flex-col gap-1 mr-2"><button onClick=${() => moveItem(idx, -1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowUp}/></button><button onClick=${() => moveItem(idx, 1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowDown}/></button></div>
                                 <div className="flex-1 min-w-0"><div className="text-sm font-bold text-white truncate">${r.titulo}</div><div className="text-[10px] text-slate-400 truncate">${r.vocalista}</div></div>
                                 <div className="flex items-center gap-2 ml-2"><input className="bg-slate-900 border border-slate-600 rounded w-10 text-center text-white text-xs py-1" value=${getBestTone(r.tono, form.lider)} onInput=${e => {const newRep = [...form.repertorio]; newRep[idx].tono = e.target.value; setForm({...form, repertorio: newRep});}} /><button onClick=${() => {const newRep = form.repertorio.filter((_, i) => i !== idx); setForm({...form, repertorio: newRep})}} className="text-red-400 p-1"><${Icon.Trash}/></button></div>
@@ -522,9 +554,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     `;
 }
 
-// ==========================================
-// 5. APP PRINCIPAL
-// ==========================================
+// ================= APP PRINCIPAL =================
 
 function App() {
     const [view, setView] = useState('HOME');
@@ -534,48 +564,27 @@ function App() {
     const [currentService, setCurrentService] = useState(null);
     const [showLogin, setShowLogin] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
-    const [toast, setToast] = useState(null); // { msg, type }
+    const [toast, setToast] = useState(null); 
     const [serviceDetail, setServiceDetail] = useState(null); 
 
-    // Exponer función toast globalmente para la API
-    window.showToastCallback = (msg, type) => {
-        setToast({ msg, type });
-        if(type !== 'loading') setTimeout(() => setToast(null), 3000);
-    };
+    window.showToastCallback = (msg, type) => { setToast({ msg, type }); if(type !== 'loading') setTimeout(() => setToast(null), 3000); };
 
     useEffect(() => { 
         const savedSession = localStorage.getItem('icc_admin');
         if(savedSession === 'true') setIsAdmin(true);
+        setTimeout(() => {
+            if (!localStorage.getItem('icc_tutorial_seen')) setView('HOME'); // Just a trigger
+        }, 3500);
         fetchData(); 
     }, []);
 
-    const fetchData = () => {
-        callGasApi('getInitialData').then(res => {
-            if (res.status === 'success') setData(res.data);
-            setLoading(false);
-        });
-    };
-
-    const handleLogin = () => {
-        if(passwordInput === '1234' || passwordInput === '6991') { 
-            setIsAdmin(true);
-            localStorage.setItem('icc_admin', 'true');
-            setShowLogin(false);
-            setPasswordInput("");
-        } else {
-            alert("Contraseña incorrecta");
-        }
-    };
-
+    const fetchData = () => { callGasApi('getInitialData').then(res => { if (res.status === 'success') setData(res.data); setLoading(false); }); };
+    const handleLogin = () => { if(passwordInput === '1234' || passwordInput === '6991') { setIsAdmin(true); localStorage.setItem('icc_admin', 'true'); setShowLogin(false); setPasswordInput(""); } else { alert("Contraseña incorrecta"); } };
     const handleLogout = () => { setIsAdmin(false); localStorage.removeItem('icc_admin'); };
     const handleSaveService = (srv) => {
-        // Optimistic Update: Actualizar localmente primero
-        const newData = {...data};
-        const idx = newData.servicios.findIndex(s => s.id === srv.id);
+        const newData = {...data}; const idx = newData.servicios.findIndex(s => s.id === srv.id);
         if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
-        setData(newData); setView('HOME');
-        // Luego enviar al servidor (el toast manejará el feedback)
-        callGasApi('saveService', srv, '1234');
+        setData(newData); setView('HOME'); callGasApi('saveService', srv, '1234');
     };
     const handleGenerateHistory = (id) => { if(confirm("¿Cerrar servicio?")) callGasApi('generateHistory', { idServicio: id }, '1234').then(() => { alert("Cerrado"); fetchData(); }); };
 
@@ -585,35 +594,18 @@ function App() {
         <div className="bg-universe min-h-screen pb-12 font-sans text-slate-200">
             ${toast && html`<${Toast} message=${toast.msg} type=${toast.type} />`}
             ${serviceDetail && html`<${ServiceDetailModal} service=${serviceDetail} teamData=${data.equipo} onClose=${() => setServiceDetail(null)} />`}
+            ${!localStorage.getItem('icc_tutorial_seen') && html`<${Manual} onClose=${() => localStorage.setItem('icc_tutorial_seen', 'true')} />`}
             
-            ${view !== 'HOME' && html`
-                <div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur border-b border-white/5 p-4 flex items-center shadow-lg">
-                    <button onClick=${() => setView('HOME')} className="bg-slate-800 p-2 rounded-full mr-3 text-slate-300 btn-active"><${Icon.ArrowLeft} /></button>
-                    <h2 className="font-bold text-white uppercase tracking-wider text-sm">${view === 'SONGS' ? 'Canciones' : view}</h2>
-                </div>
-            `}
+            ${view !== 'HOME' && html`<div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur border-b border-white/5 p-4 flex items-center shadow-lg"><button onClick=${() => setView('HOME')} className="bg-slate-800 p-2 rounded-full mr-3 text-slate-300 btn-active"><${Icon.ArrowLeft} /></button><h2 className="font-bold text-white uppercase tracking-wider text-sm">${view === 'SONGS' ? 'Canciones' : view}</h2></div>`}
 
             <div className="px-4 pt-6 max-w-lg mx-auto fade-in">
                 ${view === 'HOME' && html`
-                    <div className="flex justify-between items-center mb-4">
-                        ${!isAdmin ? html`<button onClick=${()=>setShowLogin(true)} className="text-xs text-slate-500 flex items-center gap-1 ml-auto"><${Icon.Lock}/> Director</button>` : html`<button onClick=${handleLogout} className="text-xs text-yellow-500 flex items-center gap-1 font-bold ml-auto"><${Icon.Unlock}/> Salir</button>`}
-                    </div>
+                    <div className="flex justify-between items-center mb-4">${!isAdmin ? html`<button onClick=${()=>setShowLogin(true)} className="text-xs text-slate-500 flex items-center gap-1 ml-auto"><${Icon.Lock}/> Director</button>` : html`<button onClick=${handleLogout} className="text-xs text-yellow-500 flex items-center gap-1 font-bold ml-auto"><${Icon.Unlock}/> Salir</button>`}</div>
                     <div className="text-center mb-6"><div className="inline-block px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 mb-3"><span className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.2em]">ICC Villa Rosario</span></div><h1 className="text-3xl font-serif text-white italic">Panel de <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 font-cinzel font-bold not-italic">Adoración</span></h1></div>
-
                     <${UpcomingServicesList} servicios=${data.servicios} onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }} onViewDetail=${(s) => setServiceDetail(s)} onNew=${() => { if(isAdmin) { setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); setView('SERVICE_EDITOR'); } else { alert("Solo Admin"); } }} onHistory=${handleGenerateHistory} isAdmin=${isAdmin} />
-
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                        <button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active"><${Icon.Calendar} /><span className="font-bold text-xs text-yellow-100">Cronograma</span></button>
-                        <button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700"><${Icon.History} /><span className="font-bold text-xs text-white">Historial</span></button>
-                    </div>
-
-                    <div className="space-y-3">
-                        <button onClick=${() => setView('SONGS')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-orange-400"><${Icon.Music} /></div><div className="text-left"><div className="font-bold text-white text-sm">Canciones</div></div></div></button>
-                        <button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button>
-                        <button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button>
-                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-6"><button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active"><${Icon.Calendar} /><span className="font-bold text-xs text-yellow-100">Cronograma</span></button><button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700"><${Icon.History} /><span className="font-bold text-xs text-white">Historial</span></button></div>
+                    <div className="space-y-3"><button onClick=${() => setView('SONGS')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-orange-400"><${Icon.Music} /></div><div className="text-left"><div className="font-bold text-white text-sm">Canciones</div></div></div></button><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
-
                 ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
                 ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
                 ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
@@ -621,15 +613,10 @@ function App() {
                 ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant} isAdmin=${isAdmin} refresh=${fetchData} />`}
                 ${view === 'HISTORY' && html`<${HistoryView} data=${data.historial} />`}
             </div>
-            
-            ${showLogin && html`
-                <div className="bg-universe fixed inset-0 z-[80] flex flex-col items-center justify-center p-6 fade-in"><div className="glass p-8 rounded-2xl w-full max-w-sm text-center"><h2 className="text-white font-serif text-2xl mb-4">Acceso Director</h2><input type="password" className="input-dark mb-4 text-center text-xl tracking-widest" placeholder="PIN" value=${passwordInput} onInput=${e=>setPasswordInput(e.target.value)} /><div className="flex gap-2"><button onClick=${()=>setShowLogin(false)} className="flex-1 py-3 bg-slate-800 rounded-xl text-slate-400">Cancelar</button><button onClick=${handleLogin} className="flex-1 py-3 bg-yellow-600 rounded-xl text-black font-bold">Entrar</button></div></div></div>
-            `}
+            ${showLogin && html`<div className="bg-universe fixed inset-0 z-[80] flex flex-col items-center justify-center p-6 fade-in"><div className="glass p-8 rounded-2xl w-full max-w-sm text-center"><h2 className="text-white font-serif text-2xl mb-4">Acceso Director</h2><input type="password" className="input-dark mb-4 text-center text-xl tracking-widest" placeholder="PIN" value=${passwordInput} onInput=${e=>setPasswordInput(e.target.value)} /><div className="flex gap-2"><button onClick=${()=>setShowLogin(false)} className="flex-1 py-3 bg-slate-800 rounded-xl text-slate-400">Cancelar</button><button onClick=${handleLogin} className="flex-1 py-3 bg-yellow-600 rounded-xl text-black font-bold">Entrar</button></div></div></div>`}
         </div>
     `;
 }
 
-// ==========================================
-// 6. RENDERIZADO FINAL (PUNTO DE ENTRADA)
-// ==========================================
+// ================= RENDER FINAL =================
 ReactDOM.render(html`<${App} />`, document.getElementById('root'));
