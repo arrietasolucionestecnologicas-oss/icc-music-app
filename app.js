@@ -1,10 +1,11 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 3.9: Corrección de Sintaxis y Orden de Ejecución
+ * Versión 3.5: Fix UX "Botón Agregar Canciones" + Reordenar + Permisos
  */
 
 // ================= CONFIGURACIÓN =================
+// 👇👇 VERIFICA QUE ESTA SEA TU URL DE LA ÚLTIMA IMPLEMENTACIÓN 👇👇
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyevrQgX1ifj-hKDnkZBXuoSA_M6blg3zz3rbC-9In7QrXbn5obsCxZZbDj7sl5aQMxxA/exec";
 
 // ================= PUENTE DE CONEXIÓN =================
@@ -23,7 +24,7 @@ async function callGasApi(action, payload = {}, password = "") {
     }
 }
 
-// ================= INICIO LÓGICA REACT =================
+// ================= INICIO DE TU CÓDIGO REACT ORIGINAL =================
 const html = htm.bind(React.createElement);
 const { useState, useEffect, useRef } = React;
 
@@ -1101,230 +1102,6 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 }
 
 // ==========================================
-// 5. APP PRINCIPAL
+// 6. RENDERIZADO FINAL
 // ==========================================
-
-function App() {
-    const [view, setView] = useState('HOME');
-    const [data, setData] = useState({ canciones: [], equipo: [], servicios: [], equiposMant: [], historial: [] });
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [currentService, setCurrentService] = useState(null);
-    const [showLogin, setShowLogin] = useState(false);
-    const [passwordInput, setPasswordInput] = useState("");
-    const [showSplash, setShowSplash] = useState(true);
-    const [showManual, setShowManual] = useState(false);
-    const [showLogs, setShowLogs] = useState(false);
-    const [serviceDetail, setServiceDetail] = useState(null); 
-
-    useEffect(() => { 
-        const savedSession = localStorage.getItem('icc_admin');
-        if(savedSession === 'true') setIsAdmin(true);
-        setTimeout(() => {
-            setShowSplash(false);
-            const tutorialSeen = localStorage.getItem('icc_tutorial_seen');
-            if (!tutorialSeen) setShowManual(true);
-        }, 3500);
-        fetchData(); 
-    }, []);
-
-    const fetchData = () => {
-        callGasApi('getInitialData').then(res => {
-            if (res.status === 'success') setData(res.data);
-            setLoading(false);
-        });
-    };
-
-    const handleLogin = () => {
-        if(passwordInput === '1234' || passwordInput === '6991') { 
-            setIsAdmin(true);
-            localStorage.setItem('icc_admin', 'true');
-            setShowLogin(false);
-            setPasswordInput("");
-        } else {
-            alert("Contraseña incorrecta");
-        }
-    };
-
-    const handleLogout = () => {
-        setIsAdmin(false);
-        localStorage.removeItem('icc_admin');
-    };
-
-    const handleSaveService = (srv) => {
-        setLoading(true);
-        const pass = '1234'; 
-        callGasApi('saveService', srv, pass).then(res => {
-            if (res.status === 'success') {
-                setData(res.data);
-                setView('HOME');
-            } else {
-                alert("Error al guardar: " + res.message);
-            }
-            setLoading(false);
-        });
-    };
-
-    const handleDeleteService = (id) => {
-         if(!confirm("¿Estás seguro de ELIMINAR este servicio? Esta acción no se puede deshacer.")) return;
-         setLoading(true);
-         callGasApi('deleteService', {id: id}, '1234').then(res => {
-             if (res.status === 'success') {
-                setData(res.data);
-                setView('HOME');
-             } else {
-                 alert("Error: " + res.message);
-             }
-             setLoading(false);
-         });
-    };
-
-    const handleGenerateHistory = (id) => {
-        if(!confirm("¿Deseas cerrar el servicio y generar el reporte historial?")) return;
-        setLoading(true);
-        callGasApi('generateHistory', { idServicio: id }, '1234').then(res => {
-            if(res.status === 'success') { 
-                setData(res.data); 
-                alert("Historial generado correctamente.");
-                setView('HISTORY');
-            } else {
-                alert("Error: " + res.message);
-            }
-            setLoading(false);
-        });
-    };
-
-    if (showSplash) return html`<${SplashScreen} />`;
-    if (loading) return html`
-        <div className="bg-universe h-screen flex flex-col items-center justify-center text-yellow-500 gap-4">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-yellow-500"></div>
-            <span className="font-cinzel text-xs tracking-widest">CARGANDO RECURSOS...</span>
-        </div>
-    `;
-    
-    return html`
-        <div className="bg-universe min-h-screen pb-12 font-sans text-slate-200">
-            ${showManual && html`<${Manual} onClose=${() => setShowManual(false)} />`}
-            ${showLogs && html`<${ActivityModal} onClose=${() => setShowLogs(false)} />`}
-            ${serviceDetail && html`<${ServiceDetailModal} service=${serviceDetail} teamData=${data.equipo} onClose=${() => setServiceDetail(null)} />`}
-            
-            ${view !== 'HOME' && html`
-                <div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur border-b border-white/5 p-4 flex items-center shadow-lg">
-                    <button onClick=${() => setView('HOME')} className="bg-slate-800 p-2 rounded-full mr-3 text-slate-300 btn-active">
-                        <${Icon.ArrowLeft} />
-                    </button>
-                    <h2 className="font-bold text-white uppercase tracking-wider text-sm">
-                        ${view === 'SONGS' ? 'Banco de Canciones' : view === 'TEAM' ? 'Equipo' : view === 'POSTER' ? 'Cronograma' : view === 'MAINTENANCE' ? 'Mantenimiento' : view === 'HISTORY' ? 'Historial' : 'Servicio'}
-                    </h2>
-                </div>
-            `}
-
-            <div className="px-4 pt-6 max-w-lg mx-auto fade-in">
-                ${view === 'HOME' && html`
-                    <div className="flex justify-between items-center mb-4">
-                        ${isAdmin && html`<button onClick=${() => setShowLogs(true)} className="text-[10px] text-slate-500 bg-slate-800 px-2 py-1 rounded flex gap-1 items-center"><${Icon.Activity}/> Logs</button>`}
-                        
-                        <div className="flex-1 text-right">
-                        ${!isAdmin ? 
-                            html`<button onClick=${()=>setShowLogin(true)} className="text-xs text-slate-500 flex items-center gap-1 ml-auto"><${Icon.Lock}/> Director</button>` : 
-                            html`<button onClick=${handleLogout} className="text-xs text-yellow-500 flex items-center gap-1 font-bold ml-auto"><${Icon.Unlock}/> Salir</button>`
-                        }
-                        </div>
-                    </div>
-
-                    <div className="text-center mb-6">
-                        <div className="inline-block px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 mb-3">
-                            <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.2em]">ICC Villa Rosario</span>
-                        </div>
-                        <h1 className="text-3xl font-serif text-white italic">Panel de <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 font-cinzel font-bold not-italic">Adoración</span></h1>
-                    </div>
-
-                    <${UpcomingServicesList} servicios=${data.servicios} 
-                        onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }}
-                        onViewDetail=${(s) => setServiceDetail(s)}
-                        onNew=${() => { 
-                            if(isAdmin) {
-                                setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); 
-                                setView('SERVICE_EDITOR'); 
-                            } else {
-                                alert("Solo el Director crea servicios.");
-                            }
-                        }}
-                        onHistory=${handleGenerateHistory}
-                        isAdmin=${isAdmin}
-                    />
-
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                        <button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active">
-                            <${Icon.Calendar} />
-                            <span className="font-bold text-xs text-yellow-100">Ver Cronograma</span>
-                        </button>
-                        
-                        <button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700">
-                             <${Icon.History} />
-                             <span className="font-bold text-xs text-white">Ver Historial</span>
-                        </button>
-                    </div>
-
-                    <div className="space-y-3">
-                        <button onClick=${() => setView('SONGS')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active">
-                            <div className="flex items-center gap-4">
-                                <div className="text-orange-400"><${Icon.Music} /></div>
-                                <div className="text-left">
-                                    <div className="font-bold text-white text-sm">Banco de Canciones</div>
-                                    <div className="text-xs text-slate-500">Agregar temas</div>
-                                </div>
-                            </div>
-                        </button>
-                        <button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active">
-                            <div className="flex items-center gap-4">
-                                <div className="text-teal-400"><${Icon.Users} /></div>
-                                <div className="text-left">
-                                    <div className="font-bold text-white text-sm">Equipo de Alabanza</div>
-                                    <div className="text-xs text-slate-500">Ver listado</div>
-                                </div>
-                            </div>
-                        </button>
-                        
-                         <button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500">
-                            <div className="flex items-center gap-4">
-                                <div className="text-purple-400"><${Icon.Wrench} /></div>
-                                <div className="text-left">
-                                    <div className="font-bold text-white text-sm">Mantenimiento</div>
-                                    <div className="text-xs text-slate-500">Equipos e Instrumentos</div>
-                                </div>
-                            </div>
-                        </button>
-                    </div>
-                    
-                    <div className="mt-8 text-center opacity-30">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest">A.S.T. Soluciones Tecnológicas</p>
-                    </div>
-                `}
-
-                ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onDelete=${handleDeleteService} onCancel=${() => setView('HOME')} />`}
-                ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios} />`}
-                ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'HISTORY' && html`<${HistoryView} data=${data.historial} />`}
-            </div>
-            
-            ${showLogin && html`
-                <div className="bg-universe fixed inset-0 z-[80] flex flex-col items-center justify-center p-6 fade-in">
-                    <div className="glass p-8 rounded-2xl w-full max-w-sm text-center">
-                        <h2 className="text-white font-serif text-2xl mb-4">Acceso Director</h2>
-                        <input type="password" className="input-dark mb-4 text-center text-xl tracking-widest" placeholder="PIN" value=${passwordInput} onInput=${e=>setPasswordInput(e.target.value)} />
-                        <div className="flex gap-2">
-                            <button onClick=${()=>setShowLogin(false)} className="flex-1 py-3 bg-slate-800 rounded-xl text-slate-400">Cancelar</button>
-                            <button onClick=${handleLogin} className="flex-1 py-3 bg-yellow-600 rounded-xl text-black font-bold">Entrar</button>
-                        </div>
-                    </div>
-                </div>
-            `}
-        </div>
-    `;
-}
-
-// INICIALIZACIÓN
 ReactDOM.render(html`<${App} />`, document.getElementById('root'));
