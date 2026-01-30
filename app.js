@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 5.0: Estructura Blindada contra ReferenceErrors
+ * Versión 4.2: Fix Fechas (Cronograma) + Actualización Optimista (Instantánea)
  */
 
 // ================= CONFIGURACIÓN =================
@@ -13,7 +13,7 @@ let showToastCallback = null;
 async function callGasApi(action, payload = {}, password = "") {
     try {
         if(showToastCallback && (action.startsWith('save') || action.startsWith('delete'))) {
-            showToastCallback("Procesando...", "loading");
+            showToastCallback("Sincronizando...", "loading");
         }
         
         const response = await fetch(GAS_API_URL, {
@@ -24,14 +24,14 @@ async function callGasApi(action, payload = {}, password = "") {
         const result = await response.json();
         
         if(showToastCallback && result.status === 'success') {
-            showToastCallback("¡Acción Exitosa!", "success");
+            showToastCallback("Sincronizado", "success");
         } else if (showToastCallback && result.status !== 'success') {
             showToastCallback("Error: " + result.message, "error");
         }
         
         return result;
     } catch (error) {
-        if(showToastCallback) showToastCallback("Error de Red", "error");
+        if(showToastCallback) showToastCallback("Pendiente de red", "error"); // UX: No asustar al usuario
         console.error("API Error:", error);
         return { status: "error", message: "Sin conexión" };
     }
@@ -75,27 +75,7 @@ const Icon = {
     BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
 };
 
-// ================= COMPONENTES BASE (IMPORTANTE: DEFINIDOS PRIMERO) =================
-
-// 1. SPLASH SCREEN (DEFINIDA AL INICIO PARA EVITAR REFERENCE ERROR)
-const SplashScreen = () => {
-    return html`
-        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
-            <div className="mb-6 animate-pulse text-yellow-500">
-                <${Icon.Music} style=${{width: 60, height: 60}} />
-            </div>
-            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
-            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
-            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
-                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
-                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1">A.S.T. ARRIETA SOLUCIONES TECNOLOGICAS</p>
-            </div>
-        </div>
-    `;
-};
-
-// 2. UTILIDADES
+// --- UTILIDADES ---
 const SafeText = ({ content }) => {
     if (content === null || content === undefined) return "";
     return String(content);
@@ -131,7 +111,26 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// 3. TOAST
+// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
+
+// 1. SPLASH SCREEN
+const SplashScreen = () => {
+    return html`
+        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
+            <div className="mb-6 animate-pulse text-yellow-500">
+                <${Icon.Music} style=${{width: 60, height: 60}} />
+            </div>
+            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
+            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
+            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
+                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
+            </div>
+        </div>
+    `;
+};
+
+// 2. TOAST
 function Toast({ message, type }) {
     const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
     return html`
@@ -144,7 +143,7 @@ function Toast({ message, type }) {
     `;
 }
 
-// 4. MANUAL
+// 3. MANUAL
 function Manual({ onClose }) {
     return html`
         <div className="fixed inset-0 bg-black/90 z-[90] flex items-center justify-center p-4 fade-in">
@@ -158,6 +157,42 @@ function Manual({ onClose }) {
                     </div>
                 </div>
                 <button onClick=${() => { localStorage.setItem('icc_tutorial_seen', 'true'); onClose(); }} className="w-full bg-yellow-600 py-3 rounded-xl font-bold text-black mb-2 shadow-lg">Entendido</button>
+            </div>
+        </div>
+    `;
+}
+
+// 4. LOGS
+function ActivityModal({ onClose }) {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        callGasApi('getRecentActivity').then(res => {
+            if(res.status === 'success') setLogs(res.data);
+            setLoading(false);
+        });
+    }, []);
+
+    return html`
+        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in">
+            <div className="glass-gold p-6 rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-serif text-white flex items-center gap-2"><${Icon.Activity} /> Bitácora</h2>
+                    <button onClick=${onClose} className="text-slate-400 p-2">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">
+                    ${loading ? html`<div className="text-center text-yellow-500 mt-10">Cargando...</div>` :
+                    logs.map((log, i) => html`
+                        <div key=${i} className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs">
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                                <span className="font-mono text-yellow-500"><${SafeText} content=${log.fecha} /> <${SafeText} content=${log.hora} /></span>
+                                <span className="font-bold"><${SafeText} content=${log.accion} /></span>
+                            </div>
+                            <div className="text-slate-300"><${SafeText} content=${log.detalle} /></div>
+                        </div>
+                    `)}
+                </div>
             </div>
         </div>
     `;
@@ -264,13 +299,14 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
     const removeBatchRow = (id) => { if (batchList.length > 1) { setBatchList(batchList.filter(item => item.id !== id)); } };
     const saveBatch = () => { 
         const toSave = batchList.filter(s => s.titulo.trim() !== ""); 
-        if (toSave.length === 0) return alert("Agrega al menos un título."); 
+        if (toSave.length === 0) return alert("Sin datos"); 
         callGasApi('saveSongsBatch', toSave).then(() => { 
             refresh(); setMode('LIST');
             if(embedMode && onSongsAdded) onSongsAdded(toSave);
         }); 
     };
 
+    // MERGE DE VOCALISTAS (EQUIPO + CANCIONES EXISTENTES)
     const uniqueVocalists = [...new Set([
         ...equipo.filter(e => e.rol === 'Líder').map(e => e.nombre),
         ...data.map(s => s.vocalista).filter(v => v && v !== 'General')
@@ -283,8 +319,8 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                 ${batchList.map((item, idx) => html`
                     <div key=${item.id} className="glass p-4 rounded-xl border border-slate-700 relative">
                         <div className="absolute top-2 right-2 text-xs text-slate-500 font-bold">#${idx+1}</div>
-                        <input className="input-dark mb-2 text-sm font-bold" placeholder="Título Canción" value=${item.titulo} onInput=${e => updateBatchRow(item.id, 'titulo', e.target.value)} />
-                        <div className="mb-2"><input className="input-dark text-xs mb-1" placeholder="Vocalista(s)" value=${item.vocalista} onInput=${e => updateBatchRow(item.id, 'vocalista', e.target.value)} /></div>
+                        <input className="input-dark mb-2 text-sm font-bold" placeholder="Título" value=${item.titulo} onInput=${e => updateBatchRow(item.id, 'titulo', e.target.value)} />
+                        <div className="mb-2"><input className="input-dark text-xs mb-1" placeholder="Vocalista" value=${item.vocalista} onInput=${e => updateBatchRow(item.id, 'vocalista', e.target.value)} /></div>
                         <div className="grid grid-cols-2 gap-2 mb-2">
                             <select className="input-dark text-sm" value=${item.ritmo} onChange=${e => updateBatchRow(item.id, 'ritmo', e.target.value)}><option>Rápida</option><option>Lenta</option><option>Ministración</option></select>
                             <input className="input-dark text-sm" placeholder="Tono" value=${item.tono} onInput=${e => updateBatchRow(item.id, 'tono', e.target.value)} />
@@ -294,7 +330,7 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                 `)}
                 <button onClick=${addBatchRow} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:bg-slate-800 transition">+ Agregar Fila</button>
             </div>
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50"><button onClick=${saveBatch} className="w-full py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">GUARDAR TODAS</button></div>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50"><button onClick=${saveBatch} className="w-full py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">GUARDAR TODO</button></div>
         </div>
     `;
 
@@ -337,10 +373,15 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
     `;
 }
 
+// ================= VISTAS DE NEGOCIO =================
+
 function MonthPoster({ servicios }) {
     const [offset, setOffset] = useState(0);
     const date = new Date();
+    // FIX DE FECHAS: Siempre setear día 1 para evitar saltos en meses cortos
+    date.setDate(1); 
     date.setMonth(date.getMonth() + offset);
+    
     const monthName = date.toLocaleDateString('es-CO', { month: 'long' });
     const year = date.getFullYear();
     const posterRef = useRef(null);
@@ -497,8 +538,6 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
     
-    // Optimistic UI & Logic
-    const toggleList = (listName, item) => { if (!isAdmin) return; const list = form[listName] || []; setForm({ ...form, [listName]: list.includes(item) ? list.filter(i => i !== item) : [...list, item] }); };
     const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
     const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
     const addMusico = (n) => { if(!form.musicos.includes(n)) setForm({...form, musicos: [...form.musicos, n]}); };
@@ -582,6 +621,7 @@ function App() {
     const handleLogin = () => { if(passwordInput === '1234' || passwordInput === '6991') { setIsAdmin(true); localStorage.setItem('icc_admin', 'true'); setShowLogin(false); setPasswordInput(""); } else { alert("Contraseña incorrecta"); } };
     const handleLogout = () => { setIsAdmin(false); localStorage.removeItem('icc_admin'); };
     const handleSaveService = (srv) => {
+        // Optimistic UI: Update local state immediately
         const newData = {...data}; const idx = newData.servicios.findIndex(s => s.id === srv.id);
         if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
         setData(newData); setView('HOME'); callGasApi('saveService', srv, '1234');
