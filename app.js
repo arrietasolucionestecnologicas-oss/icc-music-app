@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 4.2: Fix Fechas (Cronograma) + Actualización Optimista (Instantánea)
+ * Versión 5.0: Fix Batch UI Instantáneo + Borrado de Canciones
  */
 
 // ================= CONFIGURACIÓN =================
@@ -13,7 +13,7 @@ let showToastCallback = null;
 async function callGasApi(action, payload = {}, password = "") {
     try {
         if(showToastCallback && (action.startsWith('save') || action.startsWith('delete'))) {
-            showToastCallback("Sincronizando...", "loading");
+            showToastCallback("Procesando...", "loading");
         }
         
         const response = await fetch(GAS_API_URL, {
@@ -24,14 +24,14 @@ async function callGasApi(action, payload = {}, password = "") {
         const result = await response.json();
         
         if(showToastCallback && result.status === 'success') {
-            showToastCallback("Sincronizado", "success");
+            showToastCallback("¡Acción Exitosa!", "success");
         } else if (showToastCallback && result.status !== 'success') {
             showToastCallback("Error: " + result.message, "error");
         }
         
         return result;
     } catch (error) {
-        if(showToastCallback) showToastCallback("Pendiente de red", "error"); // UX: No asustar al usuario
+        if(showToastCallback) showToastCallback("Error de Red", "error");
         console.error("API Error:", error);
         return { status: "error", message: "Sin conexión" };
     }
@@ -285,7 +285,7 @@ function TeamManager({ data, isAdmin, refresh }) {
     `;
 }
 
-function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSongsAdded }) {
+function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSongsAdded, onDelete }) {
     const [mode, setMode] = useState('LIST'); 
     const [filterVocalist, setFilterVocalist] = useState("TODOS");
     const [search, setSearch] = useState("");
@@ -293,20 +293,24 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
     const [batchList, setBatchList] = useState([]);
 
     const saveSingle = () => { if(!song.titulo) return; callGasApi('saveSong', song).then(() => { refresh(); setMode('LIST'); }); };
-    const startBatch = () => { setBatchList([{ id: Date.now(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', letra: '' }]); setMode('BATCH_ADD'); };
-    const addBatchRow = () => { setBatchList([...batchList, { id: Date.now(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', letra: '' }]); };
+    
+    // GENERAR IDs EN FRONTEND PARA OPTIMISTIC UI
+    const startBatch = () => { setBatchList([{ id: Date.now().toString(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', letra: '' }]); setMode('BATCH_ADD'); };
+    const addBatchRow = () => { setBatchList([...batchList, { id: (Date.now()+batchList.length).toString(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', letra: '' }]); };
     const updateBatchRow = (id, field, value) => { setBatchList(batchList.map(item => item.id === id ? { ...item, [field]: value } : item)); };
     const removeBatchRow = (id) => { if (batchList.length > 1) { setBatchList(batchList.filter(item => item.id !== id)); } };
+    
     const saveBatch = () => { 
         const toSave = batchList.filter(s => s.titulo.trim() !== ""); 
-        if (toSave.length === 0) return alert("Sin datos"); 
+        if (toSave.length === 0) return alert("Agrega al menos un título."); 
+        
+        // Optimistic: Enviar datos con ID generado en frontend
         callGasApi('saveSongsBatch', toSave).then(() => { 
             refresh(); setMode('LIST');
             if(embedMode && onSongsAdded) onSongsAdded(toSave);
         }); 
     };
 
-    // MERGE DE VOCALISTAS (EQUIPO + CANCIONES EXISTENTES)
     const uniqueVocalists = [...new Set([
         ...equipo.filter(e => e.rol === 'Líder').map(e => e.nombre),
         ...data.map(s => s.vocalista).filter(v => v && v !== 'General')
@@ -319,8 +323,8 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                 ${batchList.map((item, idx) => html`
                     <div key=${item.id} className="glass p-4 rounded-xl border border-slate-700 relative">
                         <div className="absolute top-2 right-2 text-xs text-slate-500 font-bold">#${idx+1}</div>
-                        <input className="input-dark mb-2 text-sm font-bold" placeholder="Título" value=${item.titulo} onInput=${e => updateBatchRow(item.id, 'titulo', e.target.value)} />
-                        <div className="mb-2"><input className="input-dark text-xs mb-1" placeholder="Vocalista" value=${item.vocalista} onInput=${e => updateBatchRow(item.id, 'vocalista', e.target.value)} /></div>
+                        <input className="input-dark mb-2 text-sm font-bold" placeholder="Título Canción" value=${item.titulo} onInput=${e => updateBatchRow(item.id, 'titulo', e.target.value)} />
+                        <div className="mb-2"><input className="input-dark text-xs mb-1" placeholder="Vocalista(s)" value=${item.vocalista} onInput=${e => updateBatchRow(item.id, 'vocalista', e.target.value)} /></div>
                         <div className="grid grid-cols-2 gap-2 mb-2">
                             <select className="input-dark text-sm" value=${item.ritmo} onChange=${e => updateBatchRow(item.id, 'ritmo', e.target.value)}><option>Rápida</option><option>Lenta</option><option>Ministración</option></select>
                             <input className="input-dark text-sm" placeholder="Tono" value=${item.tono} onInput=${e => updateBatchRow(item.id, 'tono', e.target.value)} />
@@ -330,7 +334,7 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                 `)}
                 <button onClick=${addBatchRow} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:bg-slate-800 transition">+ Agregar Fila</button>
             </div>
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50"><button onClick=${saveBatch} className="w-full py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">GUARDAR TODO</button></div>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50"><button onClick=${saveBatch} className="w-full py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">GUARDAR TODAS</button></div>
         </div>
     `;
 
@@ -346,7 +350,11 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
             </div>
             <input className="input-dark" placeholder="Link YouTube" value=${song.link} onInput=${e => setSong({...song, link: e.target.value})} />
             <textarea className="input-dark h-32" placeholder="Letra..." value=${song.letra} onInput=${e => setSong({...song, letra: e.target.value})}></textarea>
-            <button onClick=${saveSingle} className="w-full bg-blue-600 py-3 rounded-lg font-bold shadow-lg btn-active">Guardar</button>
+            
+            <div className="flex gap-2">
+                ${isAdmin && song.id && html`<button onClick=${() => { onDelete(song.id); setMode('LIST'); }} className="px-4 bg-red-900/50 border border-red-500 text-red-400 rounded-lg"><${Icon.Trash}/></button>`}
+                <button onClick=${saveSingle} className="flex-1 bg-blue-600 py-3 rounded-lg font-bold shadow-lg btn-active">Guardar</button>
+            </div>
         </div>
     `;
 
@@ -378,10 +386,8 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
 function MonthPoster({ servicios }) {
     const [offset, setOffset] = useState(0);
     const date = new Date();
-    // FIX DE FECHAS: Siempre setear día 1 para evitar saltos en meses cortos
-    date.setDate(1); 
+    date.setDate(1); // Fix month skipping
     date.setMonth(date.getMonth() + offset);
-    
     const monthName = date.toLocaleDateString('es-CO', { month: 'long' });
     const year = date.getFullYear();
     const posterRef = useRef(null);
@@ -538,6 +544,8 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
     
+    // Optimistic UI & Logic
+    const toggleList = (listName, item) => { if (!isAdmin) return; const list = form[listName] || []; setForm({ ...form, [listName]: list.includes(item) ? list.filter(i => i !== item) : [...list, item] }); };
     const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
     const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
     const addMusico = (n) => { if(!form.musicos.includes(n)) setForm({...form, musicos: [...form.musicos, n]}); };
@@ -627,6 +635,14 @@ function App() {
         setData(newData); setView('HOME'); callGasApi('saveService', srv, '1234');
     };
     const handleGenerateHistory = (id) => { if(confirm("¿Cerrar servicio?")) callGasApi('generateHistory', { idServicio: id }, '1234').then(() => { alert("Cerrado"); fetchData(); }); };
+    
+    // NUEVA FUNCIÓN: Borrado de canciones con Optimistic UI
+    const handleDeleteSong = (id) => {
+        if(!confirm("¿Eliminar canción permanentemente?")) return;
+        const newData = {...data, canciones: data.canciones.filter(s => s.id !== id)};
+        setData(newData);
+        callGasApi('deleteSong', {id}, '1234');
+    };
 
     if (loading) return html`<${SplashScreen} />`;
     
@@ -647,7 +663,7 @@ function App() {
                     <div className="space-y-3"><button onClick=${() => setView('SONGS')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-orange-400"><${Icon.Music} /></div><div className="text-left"><div className="font-bold text-white text-sm">Canciones</div></div></div></button><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
                 ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
+                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} onDelete=${handleDeleteSong} onBatchSuccess={(newSongs) => setData({...data, canciones: [...data.canciones, ...newSongs]})} />`}
                 ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
                 ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios} />`}
                 ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant} isAdmin=${isAdmin} refresh=${fetchData} />`}
