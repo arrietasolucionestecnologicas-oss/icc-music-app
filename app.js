@@ -1,6 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
- * Versión 5.2: Fix React Error #31 (Parser Fix)
+ * Integridad Absoluta: Código Completo
+ * Versión 5.3: Fix Visual (Altura Lista) + Categorías Restauradas
  */
 
 // ================= CONFIGURACIÓN =================
@@ -74,26 +75,7 @@ const Icon = {
     BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
 };
 
-// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
-
-// 1. SPLASH SCREEN
-const SplashScreen = () => {
-    return html`
-        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
-            <div className="mb-6 animate-pulse text-yellow-500">
-                <${Icon.Music} style=${{width: 60, height: 60}} />
-            </div>
-            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
-            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
-            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
-                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
-            </div>
-        </div>
-    `;
-};
-
-// 2. UTILIDADES
+// --- UTILIDADES ---
 const SafeText = ({ content }) => {
     if (content === null || content === undefined) return "";
     return String(content);
@@ -129,7 +111,26 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// 3. TOAST
+// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
+
+// 1. SPLASH SCREEN
+const SplashScreen = () => {
+    return html`
+        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
+            <div className="mb-6 animate-pulse text-yellow-500">
+                <${Icon.Music} style=${{width: 60, height: 60}} />
+            </div>
+            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
+            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
+            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
+                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
+            </div>
+        </div>
+    `;
+};
+
+// 2. TOAST
 function Toast({ message, type }) {
     const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
     return html`
@@ -142,7 +143,7 @@ function Toast({ message, type }) {
     `;
 }
 
-// 4. MANUAL
+// 3. MANUAL
 function Manual({ onClose }) {
     return html`
         <div className="fixed inset-0 bg-black/90 z-[90] flex items-center justify-center p-4 fade-in">
@@ -156,6 +157,42 @@ function Manual({ onClose }) {
                     </div>
                 </div>
                 <button onClick=${() => { localStorage.setItem('icc_tutorial_seen', 'true'); onClose(); }} className="w-full bg-yellow-600 py-3 rounded-xl font-bold text-black mb-2 shadow-lg">Entendido</button>
+            </div>
+        </div>
+    `;
+}
+
+// 4. LOGS
+function ActivityModal({ onClose }) {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        callGasApi('getRecentActivity').then(res => {
+            if(res.status === 'success') setLogs(res.data);
+            setLoading(false);
+        });
+    }, []);
+
+    return html`
+        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in">
+            <div className="glass-gold p-6 rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-serif text-white flex items-center gap-2"><${Icon.Activity} /> Bitácora</h2>
+                    <button onClick=${onClose} className="text-slate-400 p-2">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">
+                    ${loading ? html`<div className="text-center text-yellow-500 mt-10">Cargando...</div>` :
+                    logs.map((log, i) => html`
+                        <div key=${i} className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs">
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                                <span className="font-mono text-yellow-500"><${SafeText} content=${log.fecha} /> <${SafeText} content=${log.hora} /></span>
+                                <span className="font-bold"><${SafeText} content=${log.accion} /></span>
+                            </div>
+                            <div className="text-slate-300"><${SafeText} content=${log.detalle} /></div>
+                        </div>
+                    `)}
+                </div>
             </div>
         </div>
     `;
@@ -255,9 +292,10 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
     const [song, setSong] = useState({ titulo: '', vocalista: '', ritmo: 'Rápida', letra: '', link: '', tono: '' });
     const [batchList, setBatchList] = useState([]);
 
+    const categories = ["Rápida", "Lenta", "Ministración", "Matrimonio", "Eventos"];
+
     const saveSingle = () => { if(!song.titulo) return; callGasApi('saveSong', song).then(() => { refresh(); setMode('LIST'); }); };
     
-    // GENERAR IDs EN FRONTEND PARA OPTIMISTIC UI
     const startBatch = () => { setBatchList([{ id: Date.now().toString(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', letra: '' }]); setMode('BATCH_ADD'); };
     const addBatchRow = () => { setBatchList([...batchList, { id: (Date.now()+batchList.length).toString(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', letra: '' }]); };
     const updateBatchRow = (id, field, value) => { setBatchList(batchList.map(item => item.id === id ? { ...item, [field]: value } : item)); };
@@ -266,8 +304,6 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
     const saveBatch = () => { 
         const toSave = batchList.filter(s => s.titulo.trim() !== ""); 
         if (toSave.length === 0) return alert("Agrega al menos un título."); 
-        
-        // Optimistic: Enviar datos con ID generado en frontend
         callGasApi('saveSongsBatch', toSave).then(() => { 
             refresh(); setMode('LIST');
             if(embedMode && onSongsAdded) onSongsAdded(toSave);
@@ -289,7 +325,9 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                         <input className="input-dark mb-2 text-sm font-bold" placeholder="Título Canción" value=${item.titulo} onInput=${e => updateBatchRow(item.id, 'titulo', e.target.value)} />
                         <div className="mb-2"><input className="input-dark text-xs mb-1" placeholder="Vocalista(s)" value=${item.vocalista} onInput=${e => updateBatchRow(item.id, 'vocalista', e.target.value)} /></div>
                         <div className="grid grid-cols-2 gap-2 mb-2">
-                            <select className="input-dark text-sm" value=${item.ritmo} onChange=${e => updateBatchRow(item.id, 'ritmo', e.target.value)}><option>Rápida</option><option>Lenta</option><option>Ministración</option></select>
+                            <select className="input-dark text-sm" value=${item.ritmo} onChange=${e => updateBatchRow(item.id, 'ritmo', e.target.value)}>
+                                ${categories.map(c => html`<option value=${c}>${c}</option>`)}
+                            </select>
                             <input className="input-dark text-sm" placeholder="Tono" value=${item.tono} onInput=${e => updateBatchRow(item.id, 'tono', e.target.value)} />
                         </div>
                         ${batchList.length > 1 && html`<button onClick=${() => removeBatchRow(item.id)} className="text-red-400 text-xs mt-2 underline">Eliminar</button>`}
@@ -308,7 +346,9 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
             <input className="input-dark" placeholder="Título" value=${song.titulo} onInput=${e => setSong({...song, titulo: e.target.value})} />
             <input className="input-dark" placeholder="Vocalista" value=${song.vocalista} onInput=${e => setSong({...song, vocalista: e.target.value})} />
             <div className="grid grid-cols-2 gap-2">
-                <select className="input-dark" value=${song.ritmo} onChange=${e => setSong({...song, ritmo: e.target.value})}><option>Rápida</option><option>Lenta</option><option>Ministración</option></select>
+                <select className="input-dark" value=${song.ritmo} onChange=${e => setSong({...song, ritmo: e.target.value})}>
+                    ${categories.map(c => html`<option value=${c}>${c}</option>`)}
+                </select>
                 <input className="input-dark" placeholder="Tono" value=${getBestTone(song.tono, filterVocalist !== "TODOS" ? filterVocalist : "Original")} onInput=${e => setSong({...song, tono: e.target.value})} />
             </div>
             <input className="input-dark" placeholder="Link YouTube" value=${song.link} onInput=${e => setSong({...song, link: e.target.value})} />
@@ -331,7 +371,8 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
                 <button onClick=${startBatch} className="bg-blue-600 px-4 rounded-xl shadow-lg flex items-center gap-1 font-bold text-xs"><${Icon.Plus}/> Masivo</button>
             </div>
             <select className="input-dark py-2 mt-1" value=${filterVocalist} onChange=${e => setFilterVocalist(e.target.value)}><option value="TODOS">Todos los Cantantes</option>${uniqueVocalists.map(v => html`<option value=${v}>${v}</option>`)}</select>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            
+            <div className="space-y-2 pb-24">
                 ${filtered.map(s => html`
                     <div key=${s.id} onClick=${() => { if (embedMode) { onSelect(s); } else if(isAdmin) { setSong({...s}); setMode('EDIT_SINGLE'); } }} className="glass p-3 rounded-xl flex items-center gap-3 mb-2 cursor-pointer border border-transparent hover:border-slate-500">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-slate-800 text-slate-400"><${Icon.Music}/></div>
@@ -583,7 +624,7 @@ function App() {
         const savedSession = localStorage.getItem('icc_admin');
         if(savedSession === 'true') setIsAdmin(true);
         setTimeout(() => {
-            if (!localStorage.getItem('icc_tutorial_seen')) setView('HOME'); 
+            if (!localStorage.getItem('icc_tutorial_seen')) setView('HOME'); // Just a trigger
         }, 3500);
         fetchData(); 
     }, []);
@@ -592,6 +633,7 @@ function App() {
     const handleLogin = () => { if(passwordInput === '1234' || passwordInput === '6991') { setIsAdmin(true); localStorage.setItem('icc_admin', 'true'); setShowLogin(false); setPasswordInput(""); } else { alert("Contraseña incorrecta"); } };
     const handleLogout = () => { setIsAdmin(false); localStorage.removeItem('icc_admin'); };
     const handleSaveService = (srv) => {
+        // Optimistic UI: Update local state immediately
         const newData = {...data}; const idx = newData.servicios.findIndex(s => s.id === srv.id);
         if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
         setData(newData); setView('HOME'); callGasApi('saveService', srv, '1234');
@@ -630,7 +672,7 @@ function App() {
                     <div className="space-y-3"><button onClick=${() => setView('SONGS')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-orange-400"><${Icon.Music} /></div><div className="text-left"><div className="font-bold text-white text-sm">Canciones</div></div></div></button><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
                 ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} onDelete=${handleDeleteSong} onBatchSuccess=${(newSongs) => setData({...data, canciones: [...data.canciones, ...newSongs]})} />`}
+                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} onDelete=${handleDeleteSong} onBatchSuccess=${handleBatchSuccess} />`}
                 ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
                 ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios} />`}
                 ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant} isAdmin=${isAdmin} refresh=${fetchData} />`}
