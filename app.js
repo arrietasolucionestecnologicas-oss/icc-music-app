@@ -1,7 +1,6 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
- * Integridad Absoluta: Código Completo
- * Versión 5.0: Fix Batch UI Instantáneo + Borrado de Canciones
+ * Versión 5.2: Fix React Error #31 (Parser Fix)
  */
 
 // ================= CONFIGURACIÓN =================
@@ -75,7 +74,26 @@ const Icon = {
     BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
 };
 
-// --- UTILIDADES ---
+// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
+
+// 1. SPLASH SCREEN
+const SplashScreen = () => {
+    return html`
+        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
+            <div className="mb-6 animate-pulse text-yellow-500">
+                <${Icon.Music} style=${{width: 60, height: 60}} />
+            </div>
+            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
+            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
+            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
+                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
+            </div>
+        </div>
+    `;
+};
+
+// 2. UTILIDADES
 const SafeText = ({ content }) => {
     if (content === null || content === undefined) return "";
     return String(content);
@@ -111,26 +129,7 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
-
-// 1. SPLASH SCREEN
-const SplashScreen = () => {
-    return html`
-        <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
-            <div className="mb-6 animate-pulse text-yellow-500">
-                <${Icon.Music} style=${{width: 60, height: 60}} />
-            </div>
-            <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
-            <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
-            <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Creado por</p>
-                <p className="text-xs font-bold text-white uppercase tracking-wider mt-1">Gerson Arrieta</p>
-            </div>
-        </div>
-    `;
-};
-
-// 2. TOAST
+// 3. TOAST
 function Toast({ message, type }) {
     const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
     return html`
@@ -143,7 +142,7 @@ function Toast({ message, type }) {
     `;
 }
 
-// 3. MANUAL
+// 4. MANUAL
 function Manual({ onClose }) {
     return html`
         <div className="fixed inset-0 bg-black/90 z-[90] flex items-center justify-center p-4 fade-in">
@@ -157,42 +156,6 @@ function Manual({ onClose }) {
                     </div>
                 </div>
                 <button onClick=${() => { localStorage.setItem('icc_tutorial_seen', 'true'); onClose(); }} className="w-full bg-yellow-600 py-3 rounded-xl font-bold text-black mb-2 shadow-lg">Entendido</button>
-            </div>
-        </div>
-    `;
-}
-
-// 4. LOGS
-function ActivityModal({ onClose }) {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        callGasApi('getRecentActivity').then(res => {
-            if(res.status === 'success') setLogs(res.data);
-            setLoading(false);
-        });
-    }, []);
-
-    return html`
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in">
-            <div className="glass-gold p-6 rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-serif text-white flex items-center gap-2"><${Icon.Activity} /> Bitácora</h2>
-                    <button onClick=${onClose} className="text-slate-400 p-2">✕</button>
-                </div>
-                <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">
-                    ${loading ? html`<div className="text-center text-yellow-500 mt-10">Cargando...</div>` :
-                    logs.map((log, i) => html`
-                        <div key=${i} className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs">
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-                                <span className="font-mono text-yellow-500"><${SafeText} content=${log.fecha} /> <${SafeText} content=${log.hora} /></span>
-                                <span className="font-bold"><${SafeText} content=${log.accion} /></span>
-                            </div>
-                            <div className="text-slate-300"><${SafeText} content=${log.detalle} /></div>
-                        </div>
-                    `)}
-                </div>
             </div>
         </div>
     `;
@@ -313,7 +276,7 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
 
     const uniqueVocalists = [...new Set([
         ...equipo.filter(e => e.rol === 'Líder').map(e => e.nombre),
-        ...data.map(s => s.vocalista).filter(v => v && v !== 'General')
+        ...(data || []).map(s => s.vocalista).filter(v => v && v !== 'General')
     ])].sort();
 
     if (mode === 'BATCH_ADD') return html`
@@ -358,7 +321,7 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
         </div>
     `;
 
-    let filtered = data.filter(s => s.titulo.toLowerCase().includes(search.toLowerCase()));
+    let filtered = (data || []).filter(s => s.titulo.toLowerCase().includes(search.toLowerCase()));
     if (filterVocalist !== "TODOS") { filtered = filtered.filter(s => (s.vocalista || "").toLowerCase().includes(filterVocalist.toLowerCase())); }
 
     return html`
@@ -386,7 +349,7 @@ function SongManager({ data, equipo, isAdmin, refresh, embedMode, onSelect, onSo
 function MonthPoster({ servicios }) {
     const [offset, setOffset] = useState(0);
     const date = new Date();
-    date.setDate(1); // Fix month skipping
+    date.setDate(1); 
     date.setMonth(date.getMonth() + offset);
     const monthName = date.toLocaleDateString('es-CO', { month: 'long' });
     const year = date.getFullYear();
@@ -620,7 +583,7 @@ function App() {
         const savedSession = localStorage.getItem('icc_admin');
         if(savedSession === 'true') setIsAdmin(true);
         setTimeout(() => {
-            if (!localStorage.getItem('icc_tutorial_seen')) setView('HOME'); // Just a trigger
+            if (!localStorage.getItem('icc_tutorial_seen')) setView('HOME'); 
         }, 3500);
         fetchData(); 
     }, []);
@@ -629,14 +592,18 @@ function App() {
     const handleLogin = () => { if(passwordInput === '1234' || passwordInput === '6991') { setIsAdmin(true); localStorage.setItem('icc_admin', 'true'); setShowLogin(false); setPasswordInput(""); } else { alert("Contraseña incorrecta"); } };
     const handleLogout = () => { setIsAdmin(false); localStorage.removeItem('icc_admin'); };
     const handleSaveService = (srv) => {
-        // Optimistic UI: Update local state immediately
         const newData = {...data}; const idx = newData.servicios.findIndex(s => s.id === srv.id);
         if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
         setData(newData); setView('HOME'); callGasApi('saveService', srv, '1234');
     };
     const handleGenerateHistory = (id) => { if(confirm("¿Cerrar servicio?")) callGasApi('generateHistory', { idServicio: id }, '1234').then(() => { alert("Cerrado"); fetchData(); }); };
     
-    // NUEVA FUNCIÓN: Borrado de canciones con Optimistic UI
+    // FIX DE LA FUNCIÓN COMPLEJA QUE ROMPÍA REACT
+    const handleBatchSuccess = (newSongs) => {
+        const newData = {...data, canciones: [...data.canciones, ...newSongs]};
+        setData(newData);
+    };
+
     const handleDeleteSong = (id) => {
         if(!confirm("¿Eliminar canción permanentemente?")) return;
         const newData = {...data, canciones: data.canciones.filter(s => s.id !== id)};
@@ -663,7 +630,7 @@ function App() {
                     <div className="space-y-3"><button onClick=${() => setView('SONGS')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-orange-400"><${Icon.Music} /></div><div className="text-left"><div className="font-bold text-white text-sm">Canciones</div></div></div></button><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
                 ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} onDelete=${handleDeleteSong} onBatchSuccess={(newSongs) => setData({...data, canciones: [...data.canciones, ...newSongs]})} />`}
+                ${view === 'SONGS' && html`<${SongManager} data=${data.canciones} equipo=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} onDelete=${handleDeleteSong} onBatchSuccess=${(newSongs) => setData({...data, canciones: [...data.canciones, ...newSongs]})} />`}
                 ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
                 ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios} />`}
                 ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant} isAdmin=${isAdmin} refresh=${fetchData} />`}
