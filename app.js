@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 6.3: Fix ReferenceError + Lista Alfabética
+ * Versión 6.4: Fix Critical (ServiceEditor Missing)
  */
 
 // ================= CONFIGURACIÓN =================
@@ -111,7 +111,7 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
+// ================= COMPONENTES BASE =================
 
 // 1. SPLASH SCREEN
 const SplashScreen = () => {
@@ -247,7 +247,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= REPERTOIRE PLANNER (MODO LISTA Y ORDEN ALFABÉTICO) =================
+// ================= REPERTOIRE PLANNER (MODO LISTA ORDENADA) =================
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
@@ -257,13 +257,13 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     
-    // LISTA DE CANCIONES: Filtrada por Pestaña + Vocalista y Ordenada A-Z
+    // LISTA DE CANCIONES: Filtrada y Ordenada A-Z
     const tabSongs = data.filter(s => {
         const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); 
         if (!matchType) return false;
         if (filterVocalist !== 'TODOS') return s.vocalista.includes(filterVocalist);
         return true;
-    }).sort((a, b) => a.titulo.localeCompare(b.titulo)); // ORDEN ALFABÉTICO
+    }).sort((a, b) => a.titulo.localeCompare(b.titulo)); 
 
     const uniqueVocalists = [...new Set(teamData.filter(e => e.rol === 'Líder').map(e => e.nombre))].sort();
 
@@ -394,7 +394,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
                 </div>
 
                 <div className="px-4 pt-2 pb-20 bg-[#020617] border-t border-slate-800 shrink-0 max-h-64 overflow-y-auto">
-                    <h3 className="text-[10px] uppercase text-blue-500 font-bold mb-2">Tu Selección para el Servicio</h3>
+                    <h3 className="text-[10px] uppercase text-blue-500 font-bold mb-2">Tu Selección</h3>
                     <div className="space-y-3">
                         ${rows.map((r, idx) => html`
                             <div key=${r.id} className="glass p-3 rounded-xl border border-slate-700 relative">
@@ -496,8 +496,7 @@ function HistoryView({ data }) {
     return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${data.map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
 }
 
-// ================= RENDER FINAL =================
-// 1. Definir UpcomingServicesList (necesaria para el render)
+// 7. UpcomingServicesList (FALTABA EN TU ÚLTIMO ERROR)
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
     const upcoming = servicios.filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
@@ -506,7 +505,76 @@ function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew,
     `;
 }
 
-// 2. Definir App
+// 8. ServiceEditor (ESTA FALTABA)
+function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
+    const [form, setForm] = useState({ ...service });
+    const [tab, setTab] = useState('REPERTORIO'); 
+    const [showPlanner, setShowPlanner] = useState(false); // NUEVO ESTADO PARA MODAL PLANNER
+
+    const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
+    const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
+    const addMusico = (n) => { if(!form.musicos.includes(n)) setForm({...form, musicos: [...form.musicos, n]}); };
+    const removeMusico = (n) => { setForm({...form, musicos: form.musicos.filter(m => m !== n)}); };
+    const moveItem = (index, dir) => { const newRep = [...form.repertorio]; if (dir === -1 && index > 0) [newRep[index], newRep[index-1]] = [newRep[index-1], newRep[index]]; else if (dir === 1 && index < newRep.length-1) [newRep[index], newRep[index+1]] = [newRep[index+1], newRep[index]]; setForm({ ...form, repertorio: newRep }); };
+    
+    // Función para recibir canciones del Planner
+    const handlePlannerSuccess = (songs) => {
+        setForm({...form, repertorio: [...form.repertorio, ...songs]});
+    };
+
+    const copySetlist = () => {
+        let t = `*🎵 SETLIST ${form.jornada}*\n${form.fecha}\n👤 ${form.lider}\n\n`;
+        form.repertorio.forEach((s,i)=> t+=`${i+1}. ${s.titulo} (${getBestTone(s.tono, form.lider)})\n`);
+        navigator.clipboard.writeText(t); alert("Copiado");
+    };
+
+    return html`
+        <div className="pb-24 fade-in">
+            ${showPlanner && html`<${RepertoirePlanner} data=${data.canciones} teamData=${data.equipo} onAddSongs=${handlePlannerSuccess} onClose=${() => setShowPlanner(false)} />`}
+
+            <div className="sticky top-0 z-40 bg-[#020617]/95 border-b border-white/5 p-2 flex justify-between items-center mb-4 backdrop-blur">
+                <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 overflow-x-auto flex-1 mr-2">${['INFO', 'EQUIPO', 'REPERTORIO', 'SETLIST'].map(t => html`<button key=${t} onClick=${() => setTab(t)} className=${`flex-1 py-2 text-[10px] font-bold rounded-lg transition px-2 ${tab === t ? 'bg-slate-700 text-white shadow' : 'text-slate-500'}`}>${t}</button>`)}</div>
+                <button onClick=${() => onViewDetail(form)} className="bg-blue-600 p-2 rounded-lg text-white shadow-lg text-xs font-bold flex items-center gap-1"><${Icon.Activity}/> PNG</button>
+            </div>
+            ${tab === 'INFO' && html`
+                <div className="space-y-4">
+                    <input type="date" className=${isAdmin ? "input-dark" : "input-dark bg-slate-900 text-slate-500"} value=${form.fecha} onInput=${e => isAdmin && setForm({...form, fecha: e.target.value})} readOnly=${!isAdmin} />
+                    <div className="grid grid-cols-2 gap-2"><select className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.jornada} onChange=${e => isAdmin && setForm({...form, jornada: e.target.value})} disabled=${!isAdmin}><option>Mañana</option><option>Tarde</option><option>Noche</option><option>Vigilia</option></select><select className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.estado} onChange=${e => isAdmin && setForm({...form, estado: e.target.value})} disabled=${!isAdmin}><option>Borrador</option><option>Oficial</option></select></div>
+                    <input className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.lider} onInput=${e => isAdmin && setForm({...form, lider: e.target.value})} readOnly=${!isAdmin} placeholder="Director (Libre)" />
+                </div>
+            `}
+            ${tab === 'EQUIPO' && html`
+                <div className="space-y-6">
+                    <div><p className="text-xs text-yellow-500 uppercase font-bold mb-2">Coristas</p>${isAdmin ? html`<${SearchableUserSelect} allUsers=${data.equipo.filter(e=>e.rol==='Corista'||e.rol==='Líder')} selectedUsers=${form.coristas} onAdd=${addCorista} onRemove=${removeCorista} placeholder="Añadir..." icon=${html`<${Icon.Mic}/>`}/>` : html`<div className="flex flex-wrap gap-2">${form.coristas.map(c=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-yellow-500/30">${c}</div>`)}</div>`}</div>
+                    <div><p className="text-xs text-blue-500 uppercase font-bold mb-2">Músicos</p>${isAdmin ? html`<${SearchableUserSelect} allUsers=${data.equipo.filter(e=>e.rol==='Músico'||e.rol==='Líder')} selectedUsers=${form.musicos} onAdd=${addMusico} onRemove=${removeMusico} placeholder="Añadir..." icon=${html`<${Icon.Guitar}/>`}/>` : html`<div className="flex flex-wrap gap-2">${form.musicos.map(m=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-blue-500/30">${m}</div>`)}</div>`}</div>
+                </div>
+            `}
+            ${tab === 'REPERTORIO' && html`
+                <div className="space-y-4">
+                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => isAdmin && setShowPlanner(true)} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition group flex flex-col items-center justify-center gap-3"><div className="bg-yellow-600 rounded-full p-3 mb-3 shadow-lg group-hover:scale-110 transition"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg uppercase tracking-widest">AGREGAR CANCIONES</h3></div>`}
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        ${form.repertorio.map((r, idx) => html`
+                            <div key=${idx} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center border-l-2 border-green-500 group">
+                                <div className="flex flex-col gap-1 mr-2"><button onClick=${() => moveItem(idx, -1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowUp}/></button><button onClick=${() => moveItem(idx, 1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowDown}/></button></div>
+                                <div className="flex-1 min-w-0"><div className="text-sm font-bold text-white truncate">${r.titulo}</div><div className="text-[10px] text-slate-400 truncate">${r.vocalista}</div></div>
+                                <div className="flex items-center gap-2 ml-2"><input className="bg-slate-900 border border-slate-600 rounded w-10 text-center text-white text-xs py-1" value=${getBestTone(r.tono, form.lider)} onInput=${e => {const newRep = [...form.repertorio]; newRep[idx].tono = e.target.value; setForm({...form, repertorio: newRep});}} /><button onClick=${() => {const newRep = form.repertorio.filter((_, i) => i !== idx); setForm({...form, repertorio: newRep})}} className="text-red-400 p-1"><${Icon.Trash}/></button></div>
+                            </div>
+                        `)}
+                    </div>
+                    ${(form.repertorio||[]).length > 0 && isAdmin && html`<button onClick=${() => setShowPlanner(true)} className="w-full py-3 bg-slate-800 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:text-white hover:border-slate-400 transition">+ Agregar Más Canciones</button>`}
+                </div>
+            `}
+            ${tab === 'SETLIST' && html`<div className="space-y-6 text-center pt-4"><button onClick=${copySetlist} className="w-full bg-green-600 py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 btn-active"><${Icon.WhatsApp} /> Copiar Setlist</button></div>`}
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50">
+                <button onClick=${onCancel} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold text-slate-400">Cancelar</button>
+                <button onClick=${() => onSave(form)} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">Guardar Cambios</button>
+            </div>
+        </div>
+    `;
+}
+
+// ================= APP PRINCIPAL =================
+
 function App() {
     const [view, setView] = useState('HOME');
     const [data, setData] = useState({ canciones: [], equipo: [], servicios: [], equiposMant: [], historial: [] });
@@ -568,5 +636,5 @@ function App() {
     `;
 }
 
-// 3. Montar App
+// ================= RENDER FINAL =================
 ReactDOM.render(html`<${App} />`, document.getElementById('root'));
