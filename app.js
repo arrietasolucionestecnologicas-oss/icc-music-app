@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 7.0: Perfiles Unificados + Asignación Dinámica + Datalists
+ * Versión 7.1: Fix ReferenceError (UpcomingServicesList Restaurado)
  */
 
 // ================= CONFIGURACIÓN =================
@@ -197,11 +197,9 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
         const val = e.target.value;
         setQuery(val);
         if (val.length > 0) {
-            // Filtrar y excluir ya seleccionados (comparando nombres planos para evitar duplicados visuales simples)
-            // Nota: El filtrado avanzado ocurre en ServiceEditor, aquí es solo visual
             const filtered = allUsers.filter(u => 
                 u.nombre.toLowerCase().includes(val.toLowerCase()) && 
-                !selectedUsers.some(sel => sel.includes(u.nombre)) // Evita mostrar si ya está (parcialmente)
+                !selectedUsers.some(sel => sel.includes(u.nombre))
             );
             setResults(filtered);
         } else {
@@ -210,7 +208,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     };
 
     const handleSelect = (user) => {
-        onAdd(user.nombre); // Pasa el nombre al componente padre (ServiceEditor) quien decidirá qué hacer
+        onAdd(user.nombre); 
         setQuery("");
         setResults([]);
     };
@@ -243,7 +241,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= REPERTOIRE PLANNER (V7.0: DATALIST + LAYOUT) =================
+// ================= REPERTOIRE PLANNER (V7.1: DATALIST + LAYOUT) =================
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
@@ -432,11 +430,9 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
 
 // ================= TEAM MANAGER (V7.0: ROLES MULTIPLES Y DUPLICADOS) =================
 function TeamManager({ data, isAdmin, refresh }) {
-    // Estado ajustado para Multi-Roles
     const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
     
-    // Opciones de Roles
     const roleOptions = ["Líder", "Corista", "Músico"];
 
     const toggleRole = (role) => {
@@ -451,13 +447,11 @@ function TeamManager({ data, isAdmin, refresh }) {
         if (!form.nombre) return alert("Falta el nombre");
         if (form.roles.length === 0) return alert("Selecciona al menos un rol");
         
-        // Validación de Duplicados
         if (!isEditing) {
             const exists = data.some(m => m.nombre.toLowerCase() === form.nombre.toLowerCase());
             if (exists) return alert("Este miembro ya existe. Edita el existente.");
         }
 
-        // Convertir Array Roles a String para Backend
         const payload = {
             ...form,
             rol: form.roles.join(', ') 
@@ -471,7 +465,6 @@ function TeamManager({ data, isAdmin, refresh }) {
     };
     
     const edit = (m) => { 
-        // Convertir String Roles a Array para UI
         const rolesArray = m.rol ? m.rol.split(', ') : [];
         setForm({ ...m, roles: rolesArray }); 
         setIsEditing(true); 
@@ -524,6 +517,24 @@ function TeamManager({ data, isAdmin, refresh }) {
     `;
 }
 
+// ================= UPCOMING SERVICES LIST (COMPONENTE CRÍTICO RESTAURADO) =================
+function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = servicios.filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    return html`
+        <div className="mb-8">
+            <div className="flex justify-between items-baseline px-1 mb-2"><h3 className="text-sm font-bold text-white uppercase tracking-wider">Próximos Servicios</h3>${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}</div>
+            <div className="space-y-3">
+                ${upcoming.map(s => {
+                    const d = new Date(s.fecha + "T00:00:00");
+                    const songsCount = s.repertorio ? s.repertorio.length : 0;
+                    return html`<div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group"><div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div><div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}><div className="flex items-center gap-2 mb-1"><span className="text-lg font-bold text-white leading-none">${d.getDate()}</span><span className="text-xs text-slate-400 uppercase font-bold">${d.toLocaleDateString('es-CO',{month:'short'})}</span>${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider">Borrador</span>`}</div><div className="text-sm text-slate-200"><span className="text-slate-500 text-xs mr-1">Dirige:</span><${SafeText} content=${s.lider || "Sin asignar"} /></div></div><div className="text-right flex flex-col items-end gap-2"><div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div><div className="flex gap-2 items-center">${isAdmin ? html`<button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>` : (songsCount === 0 ? html`<button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>` : html`<div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>`)}<button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button></div></div></div>`;
+                })}
+            </div>
+        </div>
+    `;
+}
+
 // ================= SERVICE EDITOR (V7.0: ASIGNACIÓN DINÁMICA DE INSTRUMENTOS) =================
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
@@ -564,9 +575,10 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 
     const removeMusico = (n) => { setForm({...form, musicos: form.musicos.filter(m => m !== n)}); };
 
-    // ... Resto de helpers (moveItem, copySetlist...)
     const moveItem = (index, dir) => { const newRep = [...form.repertorio]; if (dir === -1 && index > 0) [newRep[index], newRep[index-1]] = [newRep[index-1], newRep[index]]; else if (dir === 1 && index < newRep.length-1) [newRep[index], newRep[index+1]] = [newRep[index+1], newRep[index]]; setForm({ ...form, repertorio: newRep }); };
+    
     const handlePlannerSuccess = (songs) => { setForm({...form, repertorio: [...form.repertorio, ...songs]}); };
+    
     const copySetlist = () => {
         let t = `*🎵 SETLIST ${form.jornada}*\n${form.fecha}\n👤 ${form.lider}\n\n`;
         form.repertorio.forEach((s,i)=> t+=`${i+1}. ${s.titulo} (${getBestTone(s.tono, form.lider)})\n`);
