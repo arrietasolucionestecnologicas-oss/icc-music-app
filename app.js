@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 7.1: Fix ReferenceError (UpcomingServicesList Restaurado)
+ * Versión 7.2: Fix React Error #130 (Data Sanitization)
  */
 
 // ================= CONFIGURACIÓN =================
@@ -197,9 +197,9 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
         const val = e.target.value;
         setQuery(val);
         if (val.length > 0) {
-            const filtered = allUsers.filter(u => 
+            const filtered = (allUsers || []).filter(u => 
                 u.nombre.toLowerCase().includes(val.toLowerCase()) && 
-                !selectedUsers.some(sel => sel.includes(u.nombre))
+                !(selectedUsers || []).some(sel => sel.includes(u.nombre))
             );
             setResults(filtered);
         } else {
@@ -230,7 +230,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
                 </div>
             `}
             <div className="mt-2 flex flex-wrap gap-2">
-                ${selectedUsers.map(u => html`
+                ${(selectedUsers || []).map(u => html`
                     <div className="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs text-slate-300 flex items-center gap-2">
                         ${u}
                         <button onClick=${() => onRemove(u)} className="text-red-400 hover:text-red-300">✕</button>
@@ -252,9 +252,9 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     
     // Vocalistas únicos para el Datalist
-    const uniqueVocalists = [...new Set(teamData.filter(e => e.rol.includes('Líder') || e.rol.includes('Corista')).map(e => e.nombre))].sort();
+    const uniqueVocalists = [...new Set((teamData || []).filter(e => e.rol.includes('Líder') || e.rol.includes('Corista')).map(e => e.nombre))].sort();
 
-    const tabSongs = data.filter(s => {
+    const tabSongs = (data || []).filter(s => {
         const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); 
         if (!matchType) return false;
         if (filterVocalist !== 'TODOS') return s.vocalista.includes(filterVocalist);
@@ -265,7 +265,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         const newRows = rows.map(r => r.id === id ? { ...r, titulo: val, isNew: true } : r);
         setRows(newRows);
         if (val.length > 2) {
-            const matches = data.filter(s => s.titulo.toLowerCase().includes(val.toLowerCase()));
+            const matches = (data || []).filter(s => s.titulo.toLowerCase().includes(val.toLowerCase()));
             setSuggestions({ ...suggestions, [id]: matches });
         } else {
             const newSugg = { ...suggestions }; delete newSugg[id]; setSuggestions(newSugg);
@@ -448,7 +448,7 @@ function TeamManager({ data, isAdmin, refresh }) {
         if (form.roles.length === 0) return alert("Selecciona al menos un rol");
         
         if (!isEditing) {
-            const exists = data.some(m => m.nombre.toLowerCase() === form.nombre.toLowerCase());
+            const exists = (data || []).some(m => m.nombre.toLowerCase() === form.nombre.toLowerCase());
             if (exists) return alert("Este miembro ya existe. Edita el existente.");
         }
 
@@ -499,7 +499,7 @@ function TeamManager({ data, isAdmin, refresh }) {
             ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
             
             <div className="space-y-2 pb-10">
-                ${data.map(m => html`
+                ${(data || []).map(m => html`
                     <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <div className=${`w-1 h-8 rounded-full ${m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
@@ -517,10 +517,10 @@ function TeamManager({ data, isAdmin, refresh }) {
     `;
 }
 
-// ================= UPCOMING SERVICES LIST (COMPONENTE CRÍTICO RESTAURADO) =================
+// ================= UPCOMING SERVICES LIST (COMPONENTE RESTAURADO) =================
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
-    const upcoming = servicios.filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    const upcoming = (servicios || []).filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
     return html`
         <div className="mb-8">
             <div className="flex justify-between items-baseline px-1 mb-2"><h3 className="text-sm font-bold text-white uppercase tracking-wider">Próximos Servicios</h3>${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}</div>
@@ -535,7 +535,7 @@ function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew,
     `;
 }
 
-// ================= SERVICE EDITOR (V7.0: ASIGNACIÓN DINÁMICA DE INSTRUMENTOS) =================
+// ================= SERVICE EDITOR (COMPONENTE RESTAURADO) =================
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
@@ -551,13 +551,11 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     
     // LOGICA NUEVA PARA MUSICOS
     const initiateAddMusico = (name) => {
-        // Buscar el miembro completo
         const member = data.equipo.find(m => m.nombre === name);
         if (member) {
             setTempMember(member);
-            setShowInstModal(true); // Abrir modal
+            setShowInstModal(true); 
         } else {
-            // Si no existe (raro), agregar nombre directo
             addMusicoString(name);
         }
     };
@@ -577,15 +575,17 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 
     const moveItem = (index, dir) => { const newRep = [...form.repertorio]; if (dir === -1 && index > 0) [newRep[index], newRep[index-1]] = [newRep[index-1], newRep[index]]; else if (dir === 1 && index < newRep.length-1) [newRep[index], newRep[index+1]] = [newRep[index+1], newRep[index]]; setForm({ ...form, repertorio: newRep }); };
     
-    const handlePlannerSuccess = (songs) => { setForm({...form, repertorio: [...form.repertorio, ...songs]}); };
-    
+    const handlePlannerSuccess = (songs) => {
+        setForm({...form, repertorio: [...form.repertorio, ...songs]});
+    };
+
     const copySetlist = () => {
         let t = `*🎵 SETLIST ${form.jornada}*\n${form.fecha}\n👤 ${form.lider}\n\n`;
         form.repertorio.forEach((s,i)=> t+=`${i+1}. ${s.titulo} (${getBestTone(s.tono, form.lider)})\n`);
         navigator.clipboard.writeText(t); alert("Copiado");
     };
 
-    // Extraer instrumentos del miembro temporal
+    // Extraer instrumentos
     const availableInstruments = tempMember ? (tempMember.instrumento || "").split(',').map(s => s.trim()).filter(s => s) : [];
 
     return html`
@@ -679,6 +679,36 @@ function MonthPoster({ servicios }) {
             <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const d = new Date(s.fecha + "T00:00:00"); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div>
         </div>
     `;
+}
+
+function ServiceDetailModal({ service, teamData, onClose }) {
+    if(!service) return null;
+    const printRef = useRef(null);
+    const getInstrument = (name) => { const member = teamData.find(m => m.nombre === name); return member ? member.instrumento : "Músico"; };
+    const d = new Date(service.fecha + "T00:00:00");
+    const generatePng = async () => { if (printRef.current) { try { const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); const link = document.createElement('a'); link.download = `Servicio-${service.fecha}.png`; link.href = canvas.toDataURL(); link.click(); } catch (err) { alert("Error"); } } };
+
+    return html`
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm"><div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col"><button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button><div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl"><div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl"><div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div><h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${d.getDate()}</h2><p className="text-sm uppercase tracking-widest z-10 opacity-90">${d.toLocaleDateString('es-CO', {month:'long'}).toUpperCase()}</p><div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div></div><div className="p-6 pt-8 space-y-6"><div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div><div className="grid grid-cols-2 gap-4"><div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div><div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div></div><div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div></div></div><div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div></div></div>
+    `;
+}
+
+function MaintenanceView({ data, isAdmin, refresh }) {
+    const [viewMode, setViewMode] = useState('LIST'); 
+    const [selectedEq, setSelectedEq] = useState(null);
+    const [formMant, setFormMant] = useState({ idEquipo: '', fecha: new Date().toISOString().split('T')[0], responsable: '', costo: 0, descripcion: '' });
+    const [formEq, setFormEq] = useState({ id: '', nombre: '', ubicacion: '', frecuencia: 6, obs: '' });
+    const getStatusColor = (d) => { if(!d) return 'text-slate-500'; const diff = (new Date(d) - new Date())/(1000*60*60*24); return diff<0 ? 'text-red-500 font-bold' : diff<30 ? 'text-yellow-500' : 'text-green-500'; };
+    const handleSaveMant = () => { if(!selectedEq || !formMant.descripcion) return alert("Datos?"); callGasApi('saveMaintenance', { ...formMant, idEquipo: selectedEq.id }, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
+    const handleSaveEq = () => { if(!formEq.nombre) return alert("Nombre?"); callGasApi('saveEquipment', formEq, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
+    const handleDeleteEq = (id) => { if(confirm("¿Eliminar?")) callGasApi('deleteEquipment', {id}, '1234').then(refresh); };
+    return html`
+        <div className="space-y-6 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.Wrench} className="text-purple-500"/> Gestión de Equipos</h2></div>${isAdmin && viewMode === 'LIST' && html`<button onClick=${() => {setFormEq({id:'',nombre:'',ubicacion:'',frecuencia:6,obs:''}); setViewMode('NEW_EQ');}} className="w-full bg-slate-800 py-3 rounded-xl text-purple-400 font-bold text-sm border border-purple-500/30 mb-4">+ Nuevo Equipo</button>`}${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción" value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3"><input className="input-dark" placeholder="Nombre" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} /><input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} /><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div></div></div>`}${viewMode === 'LIST' && html`<div className="space-y-3">${data.map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Frec: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}</div>
+    `;
+}
+
+function HistoryView({ data }) {
+    return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${data.map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
 }
 
 // ================= APP PRINCIPAL =================
