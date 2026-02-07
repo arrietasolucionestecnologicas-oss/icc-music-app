@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 6.2: Biblioteca en Modo Lista Vertical y Ordenada
+ * Versión 6.3: Fix ReferenceError + Lista Alfabética
  */
 
 // ================= CONFIGURACIÓN =================
@@ -75,7 +75,43 @@ const Icon = {
     BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
 };
 
-// ================= COMPONENTES BASE =================
+// --- UTILIDADES ---
+const SafeText = ({ content }) => {
+    if (content === null || content === undefined) return "";
+    return String(content);
+};
+
+const safeJoin = (list) => {
+    if (!Array.isArray(list)) return "";
+    return list.join(", ");
+};
+
+const formatTonoDisplay = (rawTono) => {
+    try {
+        if (!rawTono) return "";
+        if (typeof rawTono === 'string' && rawTono.trim().startsWith('{')) {
+            const obj = JSON.parse(rawTono);
+            return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join(' | ');
+        }
+        return String(rawTono);
+    } catch(e) { return String(rawTono); }
+};
+
+const getBestTone = (rawTono, currentVocalist) => {
+    try {
+        if (!rawTono) return "";
+        let obj = rawTono;
+        if (typeof rawTono === 'string' && rawTono.trim().startsWith('{')) {
+            try { obj = JSON.parse(rawTono); } catch(e) { return rawTono; }
+        }
+        if (typeof obj === 'object' && obj !== null) {
+            return String(obj[currentVocalist] || obj["Original"] || "");
+        }
+        return String(rawTono);
+    } catch(e) { return ""; }
+};
+
+// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
 
 // 1. SPLASH SCREEN
 const SplashScreen = () => {
@@ -211,19 +247,17 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= REPERTOIRE PLANNER (V6.2: MODO LISTA ORDENADA) =================
+// ================= REPERTOIRE PLANNER (MODO LISTA Y ORDEN ALFABÉTICO) =================
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
-    // ESTADO
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
     const [rows, setRows] = useState([{ id: Date.now(), titulo: '', vocalista: '', tipo: 'Rápida', estilo: '', tono: '', link: '', isNew: true }]);
     const [suggestions, setSuggestions] = useState({});
 
-    // CONSTANTES
     const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     
-    // LISTA DE CANCIONES FILTRADA Y ORDENADA
+    // LISTA DE CANCIONES: Filtrada por Pestaña + Vocalista y Ordenada A-Z
     const tabSongs = data.filter(s => {
         const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); 
         if (!matchType) return false;
@@ -233,7 +267,6 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
 
     const uniqueVocalists = [...new Set(teamData.filter(e => e.rol === 'Líder').map(e => e.nombre))].sort();
 
-    // HANDLERS
     const handleSearch = (id, val) => {
         const newRows = rows.map(r => r.id === id ? { ...r, titulo: val, isNew: true } : r);
         setRows(newRows);
@@ -266,7 +299,6 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const removeRow = (id) => rows.length > 1 && setRows(rows.filter(r => r.id !== id));
 
     const handleSelectFromList = (song) => {
-        // Al hacer clic en la lista vertical
         const lastRow = rows[rows.length - 1];
         if (lastRow.titulo === '') {
             handleSelectExisting(lastRow.id, song);
@@ -464,8 +496,17 @@ function HistoryView({ data }) {
     return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${data.map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
 }
 
-// ================= APP PRINCIPAL =================
+// ================= RENDER FINAL =================
+// 1. Definir UpcomingServicesList (necesaria para el render)
+function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = servicios.filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    return html`
+        <div className="mb-8"><div className="flex justify-between items-baseline px-1 mb-2"><h3 className="text-sm font-bold text-white uppercase tracking-wider">Próximos Servicios</h3>${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}</div><div className="space-y-3">${upcoming.map(s => { const d = new Date(s.fecha + "T00:00:00"); const songsCount = s.repertorio ? s.repertorio.length : 0; return html`<div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group"><div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div><div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}><div className="flex items-center gap-2 mb-1"><span className="text-lg font-bold text-white leading-none">${d.getDate()}</span><span className="text-xs text-slate-400 uppercase font-bold">${d.toLocaleDateString('es-CO',{month:'short'})}</span>${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider">Borrador</span>`}</div><div className="text-sm text-slate-200"><span className="text-slate-500 text-xs mr-1">Dirige:</span><${SafeText} content=${s.lider || "Sin asignar"} /></div></div><div className="text-right flex flex-col items-end gap-2"><div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div><div className="flex gap-2 items-center">${isAdmin ? html`<button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>` : (songsCount === 0 ? html`<button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>` : html`<div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>`)}<button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button></div></div></div>`; })}</div></div>
+    `;
+}
 
+// 2. Definir App
 function App() {
     const [view, setView] = useState('HOME');
     const [data, setData] = useState({ canciones: [], equipo: [], servicios: [], equiposMant: [], historial: [] });
@@ -527,5 +568,5 @@ function App() {
     `;
 }
 
-// ================= RENDER FINAL =================
+// 3. Montar App
 ReactDOM.render(html`<${App} />`, document.getElementById('root'));
