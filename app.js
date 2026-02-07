@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 7.6: Fix Final (Orden de Carga + Fechas + Layout)
+ * Versión 7.7: Fix Modal PNG y Estabilidad
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -15,20 +15,17 @@ async function callGasApi(action, payload = {}, password = "") {
         if(showToastCallback && (action.startsWith('save') || action.startsWith('delete'))) {
             showToastCallback("Procesando...", "loading");
         }
-        
         const response = await fetch(GAS_API_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" }, 
             body: JSON.stringify({ action, payload, password })
         });
         const result = await response.json();
-        
         if(showToastCallback && result.status === 'success') {
             showToastCallback("¡Acción Exitosa!", "success");
         } else if (showToastCallback && result.status !== 'success') {
             showToastCallback("Error: " + result.message, "error");
         }
-        
         return result;
     } catch (error) {
         if(showToastCallback) showToastCallback("Error de Red", "error");
@@ -45,31 +42,46 @@ const safeJoin = (list) => {
     return list.join(", ");
 };
 
-const getBestTone = (raw, singer) => {
+const formatTonoDisplay = (rawTono) => {
     try {
-        if(!raw) return "";
-        let obj = raw;
-        if(typeof raw === 'string' && raw.startsWith('{')) obj = JSON.parse(raw);
-        return (typeof obj === 'object') ? (obj[singer] || obj["Original"] || "") : raw;
-    } catch(e) { return raw; }
+        if (!rawTono) return "";
+        if (typeof rawTono === 'string' && rawTono.trim().startsWith('{')) {
+            const obj = JSON.parse(rawTono);
+            return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join(' | ');
+        }
+        return String(rawTono);
+    } catch(e) { return String(rawTono); }
 };
 
-// FIX CRÍTICO DE FECHAS: No usar new Date() para visualización, usar split
+const getBestTone = (rawTono, currentVocalist) => {
+    try {
+        if (!rawTono) return "";
+        let obj = rawTono;
+        if (typeof rawTono === 'string' && rawTono.trim().startsWith('{')) {
+            try { obj = JSON.parse(rawTono); } catch(e) { return rawTono; }
+        }
+        if (typeof obj === 'object' && obj !== null) {
+            return String(obj[currentVocalist] || obj["Original"] || "");
+        }
+        return String(rawTono);
+    } catch(e) { return ""; }
+};
+
+// FIX FECHAS (Lectura de texto para evitar UTC shift)
 const parseDateParts = (dateString) => {
     if(!dateString) return { day: "??", month: "???" };
     try {
-        // Asume formato YYYY-MM-DD que viene del backend
-        const parts = dateString.split('-');
+        const parts = dateString.split('-'); // YYYY-MM-DD
         if(parts.length !== 3) return { day: "??", month: "???" };
-        
         const day = parts[2];
         const monthIndex = parseInt(parts[1]) - 1;
         const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-        return { day, month: months[monthIndex] };
+        const fullMonths = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
+        return { day, month: months[monthIndex], fullMonth: fullMonths[monthIndex] };
     } catch(e) { return { day: "??", month: "???" }; }
 };
 
-// ================= 3. ICONOS SVG =================
+// ================= 3. ICONOS =================
 const Icon = {
     ArrowLeft: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
     ArrowRight: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`,
@@ -103,7 +115,7 @@ const Icon = {
     BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
 };
 
-// ================= 4. COMPONENTES BASE (SIN DEPENDENCIAS EXTERNAS) =================
+// ================= 4. COMPONENTES BASE =================
 
 // 1. SPLASH SCREEN
 const SplashScreen = () => {
@@ -243,9 +255,9 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= 5. COMPONENTES DE NEGOCIO (DEFINIDOS ANTES DE APP) =================
+// ================= 6. COMPONENTES LÓGICOS (ORDENADOS) =================
 
-// --- 5.1. REPERTOIRE PLANNER ---
+// --- REPERTOIRE PLANNER ---
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
@@ -255,7 +267,6 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     
-    // Vocalistas únicos
     const uniqueVocalists = [...new Set((teamData || []).filter(e => e.rol && (e.rol.includes('Líder') || e.rol.includes('Corista'))).map(e => e.nombre))].sort();
 
     const tabSongs = (data || []).filter(s => {
@@ -432,7 +443,93 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
-// --- 5.2. UPCOMING SERVICES LIST (ANTES DE APP) ---
+// --- TEAM MANAGER ---
+function TeamManager({ data, isAdmin, refresh }) {
+    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
+    const [isEditing, setIsEditing] = useState(false);
+    
+    const roleOptions = ["Líder", "Corista", "Músico"];
+
+    const toggleRole = (role) => {
+        if (form.roles.includes(role)) {
+            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
+        } else {
+            setForm({ ...form, roles: [...form.roles, role] });
+        }
+    };
+
+    const save = () => { 
+        if (!form.nombre) return alert("Falta el nombre");
+        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
+        
+        if (!isEditing) {
+            const exists = (data || []).some(m => m.nombre.toLowerCase() === form.nombre.toLowerCase());
+            if (exists) return alert("Este miembro ya existe. Edita el existente.");
+        }
+
+        const payload = { ...form, rol: form.roles.join(', ') };
+
+        callGasApi('saveMember', payload, '1234').then(() => { 
+            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
+            setIsEditing(false); 
+            refresh(); 
+        }); 
+    };
+    
+    const edit = (m) => { 
+        const rolesArray = m.rol ? m.rol.split(', ') : [];
+        setForm({ ...m, roles: rolesArray }); 
+        setIsEditing(true); 
+    };
+
+    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
+    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
+
+    return html`
+        <div className="space-y-6">
+            ${isAdmin ? html`
+                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
+                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
+                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
+                    
+                    <div className="flex gap-4 my-2">
+                        ${roleOptions.map(r => html`
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
+                                <span className="text-xs text-slate-300">${r}</span>
+                            </label>
+                        `)}
+                    </div>
+
+                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
+                    
+                    <div className="flex gap-2">
+                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
+                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
+                    </div>
+                </div>
+            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
+            
+            <div className="space-y-2 pb-10">
+                ${(data || []).map(m => html`
+                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                            <div>
+                                <div className="font-bold text-sm text-white">${m.nombre}</div>
+                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
+                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
+                            </div>
+                        </div>
+                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
+                    </div>
+                `)}
+            </div>
+        </div>
+    `;
+}
+
+// --- UPCOMING SERVICES LIST (COMPONENTE ESENCIAL) ---
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
     const upcoming = (servicios || []).filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
@@ -451,14 +548,62 @@ function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew,
     `;
 }
 
-// --- 5.3. SERVICE EDITOR ---
+// --- SERVICE DETAIL MODAL (MODAL PNG) ---
+function ServiceDetailModal({ service, teamData, onClose }) {
+    if(!service) return null;
+    const printRef = useRef(null);
+    const getInstrument = (name) => { const member = (teamData || []).find(m => m.nombre === name); return member ? member.instrumento : "Músico"; };
+    const parsed = parseDateParts(service.fecha);
+    
+    const generatePng = async () => { 
+        if (printRef.current) { 
+            try { 
+                const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); 
+                const link = document.createElement('a'); 
+                link.download = `Servicio-${service.fecha}.png`; 
+                link.href = canvas.toDataURL(); 
+                link.click(); 
+            } catch (err) { alert("Error imagen"); } 
+        } 
+    };
+
+    return html`
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm">
+            <div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col">
+                <button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button>
+                <div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl">
+                    <div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl">
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
+                        <h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${parsed.day}</h2>
+                        <p className="text-sm uppercase tracking-widest z-10 opacity-90">${parsed.fullMonth}</p>
+                        <div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div>
+                    </div>
+                    <div className="p-6 pt-8 space-y-6">
+                        <div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div>
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div>
+                        </div>
+                        <div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div>
+            </div>
+        </div>
+    `;
+}
+
+// --- SERVICE EDITOR ---
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
     const [showPlanner, setShowPlanner] = useState(false);
+    
+    // Modal de Selección de Instrumento
     const [showInstModal, setShowInstModal] = useState(false);
     const [tempMember, setTempMember] = useState(null);
 
+    // Helpers
     const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
     const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
     
@@ -497,6 +642,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
         navigator.clipboard.writeText(t); alert("Copiado");
     };
 
+    // Extraer instrumentos
     const availableInstruments = tempMember ? (tempMember.instrumento || "").split(',').map(s => s.trim()).filter(s => s) : [];
 
     return html`
@@ -523,7 +669,10 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 
             <div className="sticky top-0 z-40 bg-[#020617]/95 border-b border-white/5 p-2 flex justify-between items-center mb-4 backdrop-blur">
                 <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 overflow-x-auto flex-1 mr-2">${['INFO', 'EQUIPO', 'REPERTORIO', 'SETLIST'].map(t => html`<button key=${t} onClick=${() => setTab(t)} className=${`flex-1 py-2 text-[10px] font-bold rounded-lg transition px-2 ${tab === t ? 'bg-slate-700 text-white shadow' : 'text-slate-500'}`}>${t}</button>`)}</div>
-                <button onClick=${() => onViewDetail(form)} className="bg-blue-600 p-2 rounded-lg text-white shadow-lg text-xs font-bold flex items-center gap-1"><${Icon.Activity}/> PNG</button>
+                
+                <button onClick=${() => onViewDetail(form)} className="bg-blue-600 px-3 py-2 rounded-lg text-white shadow-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-500 transition">
+                    <${Icon.Activity}/> <span className="hidden sm:inline">Generar</span> PNG
+                </button>
             </div>
 
             ${tab === 'INFO' && html`
@@ -573,25 +722,6 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     `;
 }
 
-// --- 5.4. TEAM MANAGER ---
-function TeamManager({ data, isAdmin, refresh }) {
-    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
-    const [isEditing, setIsEditing] = useState(false);
-    const roleOptions = ["Líder", "Corista", "Músico"];
-    const toggleRole = (role) => { if (form.roles.includes(role)) { setForm({ ...form, roles: form.roles.filter(r => r !== role) }); } else { setForm({ ...form, roles: [...form.roles, role] }); } };
-    const save = () => { if (!form.nombre) return alert("Falta el nombre"); if (form.roles.length === 0) return alert("Selecciona rol"); if (!isEditing && (data || []).some(m => m.nombre.toLowerCase() === form.nombre.toLowerCase())) return alert("Ya existe."); const payload = { ...form, rol: form.roles.join(', ') }; callGasApi('saveMember', payload, '1234').then(() => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); refresh(); }); };
-    const edit = (m) => { const rolesArray = m.rol ? m.rol.split(', ') : []; setForm({ ...m, roles: rolesArray }); setIsEditing(true); };
-    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
-    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
-    return html`
-        <div className="space-y-6">
-            ${isAdmin ? html`<div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500"><h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar' : 'Nuevo'}</h3><input className="input-dark" placeholder="Nombre" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} /><div className="flex gap-4 my-2">${roleOptions.map(r => html`<label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" /><span className="text-xs text-slate-300">${r}</span></label>`)}</div><input className="input-dark" placeholder="Instrumentos" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} /><div className="flex gap-2">${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}<button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button></div></div>` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
-            <div className="space-y-2 pb-10">${(data || []).map(m => html`<div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center"><div className="flex items-center gap-3"><div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div><div><div className="font-bold text-sm text-white">${m.nombre}</div><div className="text-[10px] text-slate-400 uppercase">${m.rol}</div><div className="text-[9px] text-slate-500 italic">${m.instrumento}</div></div></div>${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}</div>`)}</div>
-        </div>
-    `;
-}
-
-// --- 5.5. MONTH POSTER ---
 function MonthPoster({ servicios }) {
     const [offset, setOffset] = useState(0);
     const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() + offset);
@@ -600,12 +730,20 @@ function MonthPoster({ servicios }) {
     const posterRef = useRef(null);
     const monthServices = (servicios || []).filter(s => { if(!s.fecha) return false; const d = new Date(s.fecha + "T00:00:00"); return d.getMonth() === date.getMonth() && d.getFullYear() === year; }).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
     const generatePng = async () => { if (posterRef.current) { try { const canvas = await html2canvas(posterRef.current, { backgroundColor: "#0f172a", scale: 2 }); const link = document.createElement('a'); link.download = `Cronograma-${monthName}.png`; link.href = canvas.toDataURL(); link.click(); } catch (err) { alert("Error"); } } };
+
     return html`
-        <div className="fade-in pb-10"><div className="flex justify-between items-center glass p-2 rounded-xl mb-4"><button onClick=${() => setOffset(offset - 1)} className="p-2"><${Icon.ArrowLeft}/></button><span className="font-bold uppercase text-sm">${monthName} ${year}</span><button onClick=${() => setOffset(offset + 1)} className="p-2"><${Icon.ArrowRight}/></button></div><button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active"><${Icon.Download} /> Guardar Imagen (PNG)</button><div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const parsed = parseDateParts(s.fecha); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${parsed.day} de ${parsed.month}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div></div>
+        <div className="fade-in pb-10">
+            <div className="flex justify-between items-center glass p-2 rounded-xl mb-4"><button onClick=${() => setOffset(offset - 1)} className="p-2"><${Icon.ArrowLeft}/></button><span className="font-bold uppercase text-sm">${monthName} ${year}</span><button onClick=${() => setOffset(offset + 1)} className="p-2"><${Icon.ArrowRight}/></button></div>
+            <button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active"><${Icon.Download} /> Guardar Imagen (PNG)</button>
+            <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const d = new Date(s.fecha + "T00:00:00"); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div>
+        </div>
     `;
 }
 
-// --- 5.6. MAINTENANCE ---
+function HistoryView({ data }) {
+    return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${(data || []).map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
+}
+
 function MaintenanceView({ data, isAdmin, refresh }) {
     const [viewMode, setViewMode] = useState('LIST'); 
     const [selectedEq, setSelectedEq] = useState(null);
@@ -616,16 +754,10 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     const handleSaveEq = () => { if(!formEq.nombre) return alert("Nombre?"); callGasApi('saveEquipment', formEq, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
     const handleDeleteEq = (id) => { if(confirm("¿Eliminar?")) callGasApi('deleteEquipment', {id}, '1234').then(refresh); };
     return html`
-        <div className="space-y-6 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.Wrench} className="text-purple-500"/> Gestión de Equipos</h2></div>${isAdmin && viewMode === 'LIST' && html`<button onClick=${() => {setFormEq({id:'',nombre:'',ubicacion:'',frecuencia:6,obs:''}); setViewMode('NEW_EQ');}} className="w-full bg-slate-800 py-3 rounded-xl text-purple-400 font-bold text-sm border border-purple-500/30 mb-4">+ Nuevo Equipo</button>`}${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción" value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3"><input className="input-dark" placeholder="Nombre" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} /><input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} /><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div></div></div>`}${viewMode === 'LIST' && html`<div className="space-y-3">${data.map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Frec: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}</div>
-    `;
+        <div className="space-y-6 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.Wrench} className="text-purple-500"/> Gestión de Equipos</h2></div>${isAdmin && viewMode === 'LIST' && html`<button onClick=${() => {setFormEq({id:'',nombre:'',ubicacion:'',frecuencia:6,obs:''}); setViewMode('NEW_EQ');}} className="w-full bg-slate-800 py-3 rounded-xl text-purple-400 font-bold text-sm border border-purple-500/30 mb-4">+ Nuevo Equipo</button>`}${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción" value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3"><input className="input-dark" placeholder="Nombre" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} /><input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} /><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div></div></div>`}${viewMode === 'LIST' && html`<div className="space-y-3">${data.map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Frec: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}</div>`;
 }
 
-// --- 5.7. HISTORY ---
-function HistoryView({ data }) {
-    return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${(data || []).map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
-}
-
-// ================= 6. APP PRINCIPAL (AL FINAL PARA EVITAR REFERENCE ERROR) =================
+// ================= 6. APP PRINCIPAL =================
 
 function App() {
     const [view, setView] = useState('HOME');
