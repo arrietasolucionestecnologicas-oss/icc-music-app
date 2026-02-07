@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 6.4: Fix Critical (ServiceEditor Missing)
+ * Versión 6.6: Reordenamiento UI (Formulario Arriba / Biblioteca Abajo)
  */
 
 // ================= CONFIGURACIÓN =================
@@ -111,7 +111,7 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// ================= COMPONENTES BASE =================
+// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
 
 // 1. SPLASH SCREEN
 const SplashScreen = () => {
@@ -247,7 +247,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= REPERTOIRE PLANNER (MODO LISTA ORDENADA) =================
+// ================= REPERTOIRE PLANNER (REORDENADO: FORM ARRIBA / BIBLIOTECA ABAJO) =================
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
@@ -257,7 +257,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     
-    // LISTA DE CANCIONES: Filtrada y Ordenada A-Z
+    // LISTA DE CANCIONES
     const tabSongs = data.filter(s => {
         const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); 
         if (!matchType) return false;
@@ -350,77 +350,76 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     
     return html`
         <div className="fixed inset-0 bg-black/95 z-[60] flex flex-col p-0 fade-in">
-            <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617]">
+            <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617] shrink-0">
                 <h2 className="text-lg font-serif text-white">Planificador</h2>
                 <button onClick=${onClose} className="text-slate-400">Cerrar</button>
             </div>
 
-            <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex overflow-x-auto p-2 gap-2 bg-slate-900/50 shrink-0">
+            <div className="px-4 py-4 bg-[#020617] border-b border-slate-800 shrink-0 max-h-[40vh] overflow-y-auto">
+                <h3 className="text-[10px] uppercase text-blue-500 font-bold mb-2">Tu Selección / Nueva Canción</h3>
+                <div className="space-y-3">
+                    ${rows.map((r, idx) => html`
+                        <div key=${r.id} className="glass p-3 rounded-xl border border-slate-700 relative">
+                            <div className="absolute top-2 right-2 text-[10px] font-bold ${r.isNew ? 'text-green-500' : 'text-blue-500'}">${r.isNew ? 'NUEVA' : 'EXISTENTE'}</div>
+                            <div className="relative mb-2 mt-2">
+                                <input className="input-dark font-bold text-white text-sm" placeholder="Escribe título..." value=${r.titulo} onInput=${(e) => handleSearch(r.id, e.target.value)} />
+                                ${suggestions[r.id] && suggestions[r.id].length > 0 && html`
+                                    <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg z-50 max-h-40 overflow-y-auto mt-1 shadow-2xl">
+                                        ${suggestions[r.id].map(s => html`<div className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-0" onClick=${() => handleSelectExisting(r.id, s)}><div className="font-bold text-sm text-white">${s.titulo}</div><div className="text-xs text-slate-400">${s.vocalista}</div></div>`)}
+                                    </div>
+                                `}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                <input className="input-dark text-xs" placeholder="Vocalista" value=${r.vocalista} onInput=${(e) => updateRow(r.id, 'vocalista', e.target.value)} />
+                                <select className="input-dark text-xs" value=${r.estilo} onChange=${(e) => updateRow(r.id, 'estilo', e.target.value)}><option value="">Estilo...</option>${estilos.map(est => html`<option value=${est}>${est}</option>`)}</select>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <select className="input-dark text-xs" value=${r.tipo} onChange=${(e) => updateRow(r.id, 'tipo', e.target.value)}>${tipos.map(t => html`<option value=${t}>${t}</option>`)}</select>
+                                <input className="input-dark text-xs" placeholder="Tono" value=${r.tono} onInput=${(e) => updateRow(r.id, 'tono', e.target.value)} />
+                                <input className="input-dark text-xs" placeholder="Link" value=${r.link} onInput=${(e) => updateRow(r.id, 'link', e.target.value)} />
+                            </div>
+                            ${rows.length > 1 && html`<button onClick=${() => removeRow(r.id)} className="absolute bottom-2 right-2 text-red-400 bg-slate-900 p-1 rounded"><${Icon.Trash}/></button>`}
+                        </div>
+                    `)}
+                    <button onClick=${addRow} className="w-full py-2 border border-dashed border-slate-600 rounded-lg text-slate-400 text-xs hover:bg-slate-800">+ Fila</button>
+                </div>
+            </div>
+
+            <div className="shrink-0 bg-slate-900/50 border-b border-slate-800">
+                <div className="flex overflow-x-auto p-2 gap-2">
                     ${tipos.map(t => html`
                         <button onClick=${() => setActiveTab(t)} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>
                             ${t}
                         </button>
                     `)}
                 </div>
-
-                <div className="px-4 py-2 shrink-0 border-b border-slate-800">
+                <div className="px-4 py-2">
                     <select className="input-dark text-xs" value=${filterVocalist} onChange=${e => setFilterVocalist(e.target.value)}>
                         <option value="TODOS">Ver todos los cantantes</option>
                         ${uniqueVocalists.map(v => html`<option value=${v}>${v}</option>`)}
                     </select>
                 </div>
+            </div>
 
-                <div className="px-4 py-2 flex-1 overflow-hidden flex flex-col">
-                    <h3 className="text-[10px] uppercase text-yellow-500 font-bold mb-2 shrink-0">
-                        Biblioteca: ${activeTab} (${tabSongs.length})
-                    </h3>
-                    <div className="flex-1 overflow-y-auto scrollbar-thin space-y-1 pr-1 border border-slate-800 rounded-lg p-1 bg-slate-900/30">
-                        ${tabSongs.map(s => html`
-                            <div onClick=${() => handleSelectFromList(s)} className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-800 cursor-pointer group transition">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-yellow-500 text-xs"><${Icon.Music}/></div>
-                                    <div>
-                                        <div className="text-xs font-bold text-white group-hover:text-yellow-400">${s.titulo}</div>
-                                        <div className="text-[10px] text-slate-500">${s.vocalista}</div>
-                                    </div>
-                                </div>
-                                <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800">
-                                    ${s.estilo || 'Gral'}
+            <div className="flex-1 overflow-y-auto pb-20 px-4 pt-2">
+                <h3 className="text-[10px] uppercase text-yellow-500 font-bold mb-2 sticky top-0 bg-[#020617] py-1 z-10">
+                    Biblioteca: ${activeTab} (${tabSongs.length})
+                </h3>
+                <div className="space-y-1">
+                    ${tabSongs.map(s => html`
+                        <div onClick=${() => handleSelectFromList(s)} className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-800 cursor-pointer group transition">
+                            <div className="flex items-center gap-3">
+                                <div className="text-yellow-500 text-xs"><${Icon.Music}/></div>
+                                <div>
+                                    <div className="text-xs font-bold text-white group-hover:text-yellow-400">${s.titulo}</div>
+                                    <div className="text-[10px] text-slate-500">${s.vocalista}</div>
                                 </div>
                             </div>
-                        `)}
-                    </div>
-                </div>
-
-                <div className="px-4 pt-2 pb-20 bg-[#020617] border-t border-slate-800 shrink-0 max-h-64 overflow-y-auto">
-                    <h3 className="text-[10px] uppercase text-blue-500 font-bold mb-2">Tu Selección</h3>
-                    <div className="space-y-3">
-                        ${rows.map((r, idx) => html`
-                            <div key=${r.id} className="glass p-3 rounded-xl border border-slate-700 relative">
-                                <div className="absolute top-2 right-2 text-[10px] font-bold ${r.isNew ? 'text-green-500' : 'text-blue-500'}">${r.isNew ? 'NUEVA' : 'EXISTENTE'}</div>
-                                <div className="relative mb-2 mt-2">
-                                    <input className="input-dark font-bold text-white text-sm" placeholder="Escribe título..." value=${r.titulo} onInput=${(e) => handleSearch(r.id, e.target.value)} />
-                                    ${suggestions[r.id] && suggestions[r.id].length > 0 && html`
-                                        <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg z-50 max-h-40 overflow-y-auto mt-1 shadow-2xl">
-                                            ${suggestions[r.id].map(s => html`<div className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-0" onClick=${() => handleSelectExisting(r.id, s)}><div className="font-bold text-sm text-white">${s.titulo}</div><div className="text-xs text-slate-400">${s.vocalista}</div></div>`)}
-                                        </div>
-                                    `}
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 mb-2">
-                                    <input className="input-dark text-xs" placeholder="Vocalista" value=${r.vocalista} onInput=${(e) => updateRow(r.id, 'vocalista', e.target.value)} />
-                                    <select className="input-dark text-xs" value=${r.estilo} onChange=${(e) => updateRow(r.id, 'estilo', e.target.value)}><option value="">Estilo...</option>${estilos.map(est => html`<option value=${est}>${est}</option>`)}</select>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <select className="input-dark text-xs" value=${r.tipo} onChange=${(e) => updateRow(r.id, 'tipo', e.target.value)}>${tipos.map(t => html`<option value=${t}>${t}</option>`)}</select>
-                                    <input className="input-dark text-xs" placeholder="Tono" value=${r.tono} onInput=${(e) => updateRow(r.id, 'tono', e.target.value)} />
-                                    <input className="input-dark text-xs" placeholder="Link" value=${r.link} onInput=${(e) => updateRow(r.id, 'link', e.target.value)} />
-                                </div>
-                                ${rows.length > 1 && html`<button onClick=${() => removeRow(r.id)} className="absolute bottom-2 right-2 text-red-400 bg-slate-900 p-1 rounded"><${Icon.Trash}/></button>`}
+                            <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800">
+                                ${s.estilo || 'Gral'}
                             </div>
-                        `)}
-                        <button onClick=${addRow} className="w-full py-2 border border-dashed border-slate-600 rounded-lg text-slate-400 text-xs hover:bg-slate-800">+ Fila</button>
-                    </div>
+                        </div>
+                    `)}
                 </div>
             </div>
 
@@ -496,7 +495,7 @@ function HistoryView({ data }) {
     return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${data.map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
 }
 
-// 7. UpcomingServicesList (FALTABA EN TU ÚLTIMO ERROR)
+// 7. UpcomingServicesList
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
     const upcoming = servicios.filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
@@ -505,11 +504,11 @@ function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew,
     `;
 }
 
-// 8. ServiceEditor (ESTA FALTABA)
+// 8. ServiceEditor
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
-    const [showPlanner, setShowPlanner] = useState(false); // NUEVO ESTADO PARA MODAL PLANNER
+    const [showPlanner, setShowPlanner] = useState(false); 
 
     const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
     const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
@@ -517,7 +516,6 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     const removeMusico = (n) => { setForm({...form, musicos: form.musicos.filter(m => m !== n)}); };
     const moveItem = (index, dir) => { const newRep = [...form.repertorio]; if (dir === -1 && index > 0) [newRep[index], newRep[index-1]] = [newRep[index-1], newRep[index]]; else if (dir === 1 && index < newRep.length-1) [newRep[index], newRep[index+1]] = [newRep[index+1], newRep[index]]; setForm({ ...form, repertorio: newRep }); };
     
-    // Función para recibir canciones del Planner
     const handlePlannerSuccess = (songs) => {
         setForm({...form, repertorio: [...form.repertorio, ...songs]});
     };
