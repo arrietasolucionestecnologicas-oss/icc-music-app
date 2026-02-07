@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 6.0: Flujo de Planificación Unificado (Smart Repertoire)
+ * Versión 6.1: Planificador Avanzado con Tabs, Filtros y Estilos
  */
 
 // ================= CONFIGURACIÓN =================
@@ -111,13 +111,15 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// ================= COMPONENTES BASE =================
+// ================= COMPONENTES BASE (DEFINIDOS PRIMERO) =================
 
 // 1. SPLASH SCREEN
 const SplashScreen = () => {
     return html`
         <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
-            <div className="mb-6 animate-pulse text-yellow-500"><${Icon.Music} style=${{width: 60, height: 60}} /></div>
+            <div className="mb-6 animate-pulse text-yellow-500">
+                <${Icon.Music} style=${{width: 60, height: 60}} />
+            </div>
             <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
             <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
             <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
@@ -131,7 +133,14 @@ const SplashScreen = () => {
 // 2. TOAST
 function Toast({ message, type }) {
     const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
-    return html`<div className="fixed top-4 right-4 z-[100] fade-in"><div className=${`${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-white/10`}>${type === 'loading' && html`<div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>`}<span className="font-bold text-sm">${message}</span></div></div>`;
+    return html`
+        <div className="fixed top-4 right-4 z-[100] fade-in">
+            <div className=${`${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-white/10`}>
+                ${type === 'loading' && html`<div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>`}
+                <span className="font-bold text-sm">${message}</span>
+            </div>
+        </div>
+    `;
 }
 
 // 3. MANUAL
@@ -141,7 +150,12 @@ function Manual({ onClose }) {
             <div className="glass-gold p-6 rounded-2xl max-w-sm w-full text-center border border-yellow-500/30">
                 <div className="text-yellow-500 mb-4 flex justify-center"><${Icon.Info} style=${{width: 40, height: 40}} /></div>
                 <h2 className="text-xl font-serif text-white mb-4">Bienvenido al Sistema</h2>
-                <div className="text-left space-y-4 text-sm text-slate-300 mb-6"><div className="flex gap-3"><div className="bg-slate-800 p-2 rounded-lg h-fit"><${Icon.Music} /></div><div><strong className="text-white block">Planificador de Repertorio</strong>Ahora gestiona tus canciones directamente desde el servicio.</div></div></div>
+                <div className="text-left space-y-4 text-sm text-slate-300 mb-6">
+                    <div className="flex gap-3">
+                        <div className="bg-slate-800 p-2 rounded-lg h-fit"><${Icon.Music} /></div>
+                        <div><strong className="text-white block">Planificador de Repertorio</strong>Ahora gestiona tus canciones directamente desde el servicio.</div>
+                    </div>
+                </div>
                 <button onClick=${() => { localStorage.setItem('icc_tutorial_seen', 'true'); onClose(); }} className="w-full bg-yellow-600 py-3 rounded-xl font-bold text-black mb-2 shadow-lg">Entendido</button>
             </div>
         </div>
@@ -153,10 +167,34 @@ function ActivityModal({ onClose }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => { callGasApi('getRecentActivity').then(res => { if(res.status === 'success') setLogs(res.data); setLoading(false); }); }, []);
+    useEffect(() => {
+        callGasApi('getRecentActivity').then(res => {
+            if(res.status === 'success') setLogs(res.data);
+            setLoading(false);
+        });
+    }, []);
 
     return html`
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in"><div className="glass-gold p-6 rounded-2xl w-full max-w-lg h-[80vh] flex flex-col"><div className="flex justify-between items-center mb-4"><h2 className="text-xl font-serif text-white flex items-center gap-2"><${Icon.Activity} /> Bitácora</h2><button onClick=${onClose} className="text-slate-400 p-2">✕</button></div><div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">${loading ? html`<div className="text-center text-yellow-500 mt-10">Cargando...</div>` : logs.map((log, i) => html`<div key=${i} className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs"><div className="flex justify-between text-[10px] text-slate-500 mb-1"><span className="font-mono text-yellow-500"><${SafeText} content=${log.fecha} /> <${SafeText} content=${log.hora} /></span><span className="font-bold"><${SafeText} content=${log.accion} /></span></div><div className="text-slate-300"><${SafeText} content=${log.detalle} /></div></div>`)}</div></div></div>
+        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in">
+            <div className="glass-gold p-6 rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-serif text-white flex items-center gap-2"><${Icon.Activity} /> Bitácora</h2>
+                    <button onClick=${onClose} className="text-slate-400 p-2">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">
+                    ${loading ? html`<div className="text-center text-yellow-500 mt-10">Cargando...</div>` :
+                    logs.map((log, i) => html`
+                        <div key=${i} className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs">
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                                <span className="font-mono text-yellow-500"><${SafeText} content=${log.fecha} /> <${SafeText} content=${log.hora} /></span>
+                                <span className="font-bold"><${SafeText} content=${log.accion} /></span>
+                            </div>
+                            <div className="text-slate-300"><${SafeText} content=${log.detalle} /></div>
+                        </div>
+                    `)}
+                </div>
+            </div>
+        </div>
     `;
 }
 
@@ -166,22 +204,74 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     const [results, setResults] = useState([]);
 
     const handleSearch = (e) => {
-        const val = e.target.value; setQuery(val);
-        if (val.length > 0) { const filtered = allUsers.filter(u => u.nombre.toLowerCase().includes(val.toLowerCase()) && !selectedUsers.includes(u.nombre)); setResults(filtered); } else { setResults([]); }
+        const val = e.target.value;
+        setQuery(val);
+        if (val.length > 0) {
+            const filtered = allUsers.filter(u => u.nombre.toLowerCase().includes(val.toLowerCase()) && !selectedUsers.includes(u.nombre));
+            setResults(filtered);
+        } else {
+            setResults([]);
+        }
     };
-    const handleSelect = (user) => { onAdd(user.nombre); setQuery(""); setResults([]); };
+
+    const handleSelect = (user) => {
+        onAdd(user.nombre);
+        setQuery("");
+        setResults([]);
+    };
 
     return html`
-        <div className="mb-4"><div className="relative"><input className="input-dark pl-10" placeholder=${placeholder} value=${query} onInput=${handleSearch} /><div className="absolute left-3 top-3 text-slate-500">${icon}</div></div>${results.length > 0 && html`<div className="bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-40 overflow-y-auto absolute z-10 w-full shadow-xl">${results.map(u => html`<div onClick=${() => handleSelect(u)} className="p-2 hover:bg-slate-700 cursor-pointer text-sm text-white border-b border-slate-700 last:border-0">${u.nombre}</div>`)}</div>`}<div className="mt-2 flex flex-wrap gap-2">${selectedUsers.map(u => html`<div className="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs text-slate-300 flex items-center gap-2">${u}<button onClick=${() => onRemove(u)} className="text-red-400 hover:text-red-300">✕</button></div>`)}</div></div>
+        <div className="mb-4">
+            <div className="relative">
+                <input className="input-dark pl-10" placeholder=${placeholder} value=${query} onInput=${handleSearch} />
+                <div className="absolute left-3 top-3 text-slate-500">${icon}</div>
+            </div>
+            ${results.length > 0 && html`
+                <div className="bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-40 overflow-y-auto absolute z-10 w-full shadow-xl">
+                    ${results.map(u => html`
+                        <div onClick=${() => handleSelect(u)} className="p-2 hover:bg-slate-700 cursor-pointer text-sm text-white border-b border-slate-700 last:border-0">
+                            ${u.nombre}
+                        </div>
+                    `)}
+                </div>
+            `}
+            <div className="mt-2 flex flex-wrap gap-2">
+                ${selectedUsers.map(u => html`
+                    <div className="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs text-slate-300 flex items-center gap-2">
+                        ${u}
+                        <button onClick=${() => onRemove(u)} className="text-red-400 hover:text-red-300">✕</button>
+                    </div>
+                `)}
+            </div>
+        </div>
     `;
 }
 
-// ================= NUEVO COMPONENTE: REPERTOIRE PLANNER (REEMPLAZA SONGMANAGER) =================
+// ================= NUEVO COMPONENTE: REPERTOIRE PLANNER (V6.1) =================
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
-    const [rows, setRows] = useState([{ id: Date.now(), titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', isNew: true }]);
+    // ESTADO
+    const [activeTab, setActiveTab] = useState('Rápida'); // Pestaña de TIPO
+    const [filterVocalist, setFilterVocalist] = useState('TODOS');
+    const [rows, setRows] = useState([{ id: Date.now(), titulo: '', vocalista: '', tipo: 'Rápida', estilo: '', tono: '', link: '', isNew: true }]);
     const [suggestions, setSuggestions] = useState({});
 
+    // CONSTANTES
+    const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
+    const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
+    
+    // LISTA DE CANCIONES FILTRADA PARA LA PESTAÑA ACTUAL
+    const tabSongs = data.filter(s => {
+        const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); // Compatibilidad hacia atrás
+        if (!matchType) return false;
+        if (filterVocalist !== 'TODOS') return s.vocalista.includes(filterVocalist);
+        return true;
+    });
+
+    const uniqueVocalists = [...new Set(teamData.filter(e => e.rol === 'Líder').map(e => e.nombre))].sort();
+
+    // HANDLERS
     const handleSearch = (id, val) => {
+        // Al escribir, sugerimos de TODA la base de datos, no solo de la pestaña actual
         const newRows = rows.map(r => r.id === id ? { ...r, titulo: val, isNew: true } : r);
         setRows(newRows);
         if (val.length > 2) {
@@ -192,22 +282,61 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         }
     };
 
-    const handleSelect = (id, song) => {
-        const newRows = rows.map(r => r.id === id ? { ...r, titulo: song.titulo, vocalista: song.vocalista, ritmo: song.ritmo, tono: getBestTone(song.tono, "General"), link: song.link, isNew: false, dbId: song.id } : r);
+    const handleSelectExisting = (id, song) => {
+        const newRows = rows.map(r => r.id === id ? { 
+            ...r, 
+            titulo: song.titulo, 
+            vocalista: song.vocalista, 
+            tipo: song.tipo || song.ritmo, // Compatibilidad
+            estilo: song.estilo,
+            tono: getBestTone(song.tono, "General"), 
+            link: song.link, 
+            isNew: false, 
+            dbId: song.id 
+        } : r);
         setRows(newRows);
         const newSugg = { ...suggestions }; delete newSugg[id]; setSuggestions(newSugg);
     };
 
     const updateRow = (id, field, val) => setRows(rows.map(r => r.id === id ? { ...r, [field]: val } : r));
-    const addRow = () => setRows([...rows, { id: Date.now() + rows.length, titulo: '', vocalista: '', ritmo: 'Rápida', tono: '', link: '', isNew: true }]);
+    const addRow = () => setRows([...rows, { id: Date.now() + rows.length, titulo: '', vocalista: '', tipo: activeTab, estilo: '', tono: '', link: '', isNew: true }]);
     const removeRow = (id) => rows.length > 1 && setRows(rows.filter(r => r.id !== id));
+
+    const handleSelectFromList = (song) => {
+        // Al hacer clic en una canción de la lista filtrada, la agregamos a las filas de abajo
+        const lastRow = rows[rows.length - 1];
+        if (lastRow.titulo === '') {
+            handleSelectExisting(lastRow.id, song);
+        } else {
+            const newId = Date.now() + Math.random();
+            setRows([...rows, { 
+                id: newId, 
+                titulo: song.titulo, 
+                vocalista: song.vocalista, 
+                tipo: song.tipo || song.ritmo, 
+                estilo: song.estilo,
+                tono: getBestTone(song.tono, "General"), 
+                link: song.link, 
+                isNew: false, 
+                dbId: song.id 
+            }]);
+        }
+    };
 
     const handleSave = () => {
         const validRows = rows.filter(r => r.titulo.trim() !== "");
         if (validRows.length === 0) return alert("Agrega al menos una canción");
         
         // Separar lógica: Existentes vs Nuevas
-        const toCreate = validRows.filter(r => r.isNew).map(r => ({ titulo: r.titulo, vocalista: r.vocalista, ritmo: r.ritmo, tono: r.tono, link: r.link, letra: '' }));
+        const toCreate = validRows.filter(r => r.isNew).map(r => ({ 
+            titulo: r.titulo.toUpperCase(), // Forzar mayúsculas
+            vocalista: r.vocalista, 
+            tipo: r.tipo, 
+            estilo: r.estilo, // Nuevo campo
+            tono: r.tono, 
+            link: r.link, 
+            letra: '' 
+        }));
         
         // Si hay nuevas, enviarlas a crear en background
         if (toCreate.length > 0) callGasApi('saveSongsBatch', toCreate);
@@ -215,9 +344,10 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         // Devolver todas al editor (Optimistic)
         const mappedSongs = validRows.map(r => ({
             id: r.dbId || "TEMP-" + Date.now() + Math.random(),
-            titulo: r.titulo,
+            titulo: r.titulo.toUpperCase(),
             vocalista: r.vocalista,
-            ritmo: r.ritmo,
+            ritmo: r.tipo, // Mantenemos la prop ritmo para compatibilidad con vistas viejas
+            estilo: r.estilo,
             tono: r.tono,
             link: r.link
         }));
@@ -225,44 +355,94 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         onAddSongs(mappedSongs);
         onClose();
     };
-
-    const categories = ["Rápida", "Lenta", "Ministración", "Matrimonio", "Eventos"];
     
     return html`
-        <div className="fixed inset-0 bg-black/95 z-[60] flex flex-col p-4 fade-in">
-            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-4">
-                <h2 className="text-xl font-serif text-white">Planificador de Repertorio</h2>
-                <button onClick=${onClose} className="text-slate-400">Cancelar</button>
+        <div className="fixed inset-0 bg-black/95 z-[60] flex flex-col p-0 fade-in">
+            <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617]">
+                <h2 className="text-lg font-serif text-white">Planificador</h2>
+                <button onClick=${onClose} className="text-slate-400">Cerrar</button>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-4 pb-20">
-                ${rows.map((r, idx) => html`
-                    <div key=${r.id} className="glass p-4 rounded-xl border border-slate-700 relative">
-                        <div className="text-xs text-slate-500 font-bold mb-2">Canción #${idx + 1} ${r.isNew ? '(Nueva)' : '(Existente)'}</div>
-                        
-                        <div className="relative mb-2">
-                            <input className="input-dark font-bold text-white" placeholder="Título de la canción..." value=${r.titulo} onInput=${(e) => handleSearch(r.id, e.target.value)} />
-                            ${suggestions[r.id] && suggestions[r.id].length > 0 && html`
-                                <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg z-50 max-h-40 overflow-y-auto mt-1 shadow-2xl">
-                                    ${suggestions[r.id].map(s => html`<div className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-0" onClick=${() => handleSelect(r.id, s)}><div className="font-bold text-sm text-white">${s.titulo}</div><div className="text-xs text-slate-400">${s.vocalista}</div></div>`)}
-                                </div>
-                            `}
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-2 mb-2">
-                            <input className="input-dark text-xs" placeholder="Vocalista" value=${r.vocalista} onInput=${(e) => updateRow(r.id, 'vocalista', e.target.value)} />
-                            <select className="input-dark text-xs" value=${r.ritmo} onChange=${(e) => updateRow(r.id, 'ritmo', e.target.value)}>${categories.map(c => html`<option value=${c}>${c}</option>`)}</select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <input className="input-dark text-xs" placeholder="Tono (Ej: G)" value=${r.tono} onInput=${(e) => updateRow(r.id, 'tono', e.target.value)} />
-                            <input className="input-dark text-xs" placeholder="Link YouTube" value=${r.link} onInput=${(e) => updateRow(r.id, 'link', e.target.value)} />
-                        </div>
-                        ${rows.length > 1 && html`<button onClick=${() => removeRow(r.id)} className="absolute top-2 right-2 text-red-400"><${Icon.Trash}/></button>`}
+            <div className="flex-1 overflow-y-auto pb-32">
+                <div className="flex overflow-x-auto p-2 gap-2 bg-slate-900/50 sticky top-0 z-10">
+                    ${tipos.map(t => html`
+                        <button onClick=${() => setActiveTab(t)} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>
+                            ${t}
+                        </button>
+                    `)}
+                </div>
+
+                <div className="px-4 py-2">
+                    <select className="input-dark text-xs" value=${filterVocalist} onChange=${e => setFilterVocalist(e.target.value)}>
+                        <option value="TODOS">Ver todos los cantantes</option>
+                        ${uniqueVocalists.map(v => html`<option value=${v}>${v}</option>`)}
+                    </select>
+                </div>
+
+                <div className="px-4 mb-4">
+                    <h3 className="text-[10px] uppercase text-slate-500 font-bold mb-2">Bibliotecas: ${activeTab} (${tabSongs.length})</h3>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                        ${tabSongs.map(s => html`
+                            <button onClick=${() => handleSelectFromList(s)} className="flex-shrink-0 bg-slate-800 border border-slate-700 p-2 rounded-lg w-32 text-left hover:border-yellow-500 transition group">
+                                <div className="font-bold text-xs text-white truncate group-hover:text-yellow-500">${s.titulo}</div>
+                                <div className="text-[9px] text-slate-400 truncate">${s.vocalista}</div>
+                                <div className="mt-1 text-[9px] bg-slate-900 inline-block px-1 rounded text-slate-500">${s.estilo || 'Gral'}</div>
+                            </button>
+                        `)}
                     </div>
-                `)}
-                <button onClick=${addRow} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:bg-slate-800">+ Agregar otra canción</button>
+                </div>
+
+                <div className="px-4 space-y-4">
+                    <h3 className="text-[10px] uppercase text-yellow-500 font-bold">Tu Selección Actual</h3>
+                    ${rows.map((r, idx) => html`
+                        <div key=${r.id} className="glass p-3 rounded-xl border border-slate-700 relative">
+                            <div className="absolute top-2 right-2 text-[10px] font-bold ${r.isNew ? 'text-green-500' : 'text-blue-500'}">${r.isNew ? 'NUEVA' : 'EXISTENTE'}</div>
+                            
+                            <div className="relative mb-2 mt-2">
+                                <input className="input-dark font-bold text-white text-sm" placeholder="Escribe título..." value=${r.titulo} onInput=${(e) => handleSearch(r.id, e.target.value)} />
+                                ${suggestions[r.id] && suggestions[r.id].length > 0 && html`
+                                    <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg z-50 max-h-40 overflow-y-auto mt-1 shadow-2xl">
+                                        ${suggestions[r.id].map(s => html`<div className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-0" onClick=${() => handleSelectExisting(r.id, s)}><div className="font-bold text-sm text-white">${s.titulo}</div><div className="text-xs text-slate-400">${s.vocalista}</div></div>`)}
+                                    </div>
+                                `}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <label className="text-[9px] text-slate-500">Vocalista</label>
+                                    <input className="input-dark text-xs" value=${r.vocalista} onInput=${(e) => updateRow(r.id, 'vocalista', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-slate-500">Estilo (Ritmo)</label>
+                                    <select className="input-dark text-xs" value=${r.estilo} onChange=${(e) => updateRow(r.id, 'estilo', e.target.value)}>
+                                        <option value="">Seleccionar...</option>
+                                        ${estilos.map(est => html`<option value=${est}>${est}</option>`)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label className="text-[9px] text-slate-500">Tipo</label>
+                                    <select className="input-dark text-xs" value=${r.tipo} onChange=${(e) => updateRow(r.id, 'tipo', e.target.value)}>${tipos.map(t => html`<option value=${t}>${t}</option>`)}</select>
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-slate-500">Tono</label>
+                                    <input className="input-dark text-xs" value=${r.tono} onInput=${(e) => updateRow(r.id, 'tono', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-slate-500">Link</label>
+                                    <input className="input-dark text-xs" value=${r.link} onInput=${(e) => updateRow(r.id, 'link', e.target.value)} />
+                                </div>
+                            </div>
+                            ${rows.length > 1 && html`<button onClick=${() => removeRow(r.id)} className="absolute bottom-2 right-2 text-red-400 bg-slate-900 p-1 rounded"><${Icon.Trash}/></button>`}
+                        </div>
+                    `)}
+                    <button onClick=${addRow} className="w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:bg-slate-800">+ Agregar fila vacía</button>
+                </div>
             </div>
+
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-slate-800">
-                <button onClick=${handleSave} className="w-full bg-blue-600 py-3 rounded-xl font-bold text-white shadow-lg">Confirmar Selección</button>
+                <button onClick=${handleSave} className="w-full bg-blue-600 py-3 rounded-xl font-bold text-white shadow-lg">Guardar en Servicio</button>
             </div>
         </div>
     `;
