@@ -1,7 +1,6 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
- * Integridad Absoluta: Código Completo
- * Versión 7.2: Fix React Error #130 (Data Sanitization)
+ * Versión 7.3: Estabilidad Total + Layout Corregido
  */
 
 // ================= CONFIGURACIÓN =================
@@ -241,7 +240,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= REPERTOIRE PLANNER (V7.1: DATALIST + LAYOUT) =================
+// ================= REPERTOIRE PLANNER (V7.3: FORM ARRIBA / LISTA ABAJO) =================
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
@@ -251,8 +250,8 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     
-    // Vocalistas únicos para el Datalist
-    const uniqueVocalists = [...new Set((teamData || []).filter(e => e.rol.includes('Líder') || e.rol.includes('Corista')).map(e => e.nombre))].sort();
+    // Vocalistas únicos para el Datalist (Safe Check)
+    const uniqueVocalists = [...new Set((teamData || []).filter(e => e.rol && (e.rol.includes('Líder') || e.rol.includes('Corista'))).map(e => e.nombre))].sort();
 
     const tabSongs = (data || []).filter(s => {
         const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); 
@@ -428,7 +427,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
-// ================= TEAM MANAGER (V7.0: ROLES MULTIPLES Y DUPLICADOS) =================
+// ================= TEAM MANAGER (V7.0: CHECKBOXES Y VALIDACION) =================
 function TeamManager({ data, isAdmin, refresh }) {
     const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
@@ -502,7 +501,7 @@ function TeamManager({ data, isAdmin, refresh }) {
                 ${(data || []).map(m => html`
                     <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <div className=${`w-1 h-8 rounded-full ${m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
                             <div>
                                 <div className="font-bold text-sm text-white">${m.nombre}</div>
                                 <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
@@ -551,7 +550,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
     
     // LOGICA NUEVA PARA MUSICOS
     const initiateAddMusico = (name) => {
-        const member = data.equipo.find(m => m.nombre === name);
+        const member = (data.equipo || []).find(m => m.nombre === name);
         if (member) {
             setTempMember(member);
             setShowInstModal(true); 
@@ -627,12 +626,12 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
                 <div className="space-y-6">
                     <div>
                         <p className="text-xs text-yellow-500 uppercase font-bold mb-2">Coristas</p>
-                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${data.equipo.filter(e=>e.rol.includes('Corista')||e.rol.includes('Líder'))} selectedUsers=${form.coristas} onAdd=${addCorista} onRemove=${removeCorista} placeholder="Añadir Corista..." icon=${html`<${Icon.Mic}/>`}/>` : html`<div className="flex flex-wrap gap-2">${form.coristas.map(c=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-yellow-500/30">${c}</div>`)}</div>`}
+                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${(data.equipo || []).filter(e=>e.rol && (e.rol.includes('Corista')||e.rol.includes('Líder')))} selectedUsers=${form.coristas} onAdd=${addCorista} onRemove=${removeCorista} placeholder="Añadir Corista..." icon=${html`<${Icon.Mic}/>`}/>` : html`<div className="flex flex-wrap gap-2">${form.coristas.map(c=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-yellow-500/30">${c}</div>`)}</div>`}
                     </div>
                     
                     <div>
                         <p className="text-xs text-blue-500 uppercase font-bold mb-2">Músicos</p>
-                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${data.equipo.filter(e=>e.rol.includes('Músico')||e.rol.includes('Líder'))} selectedUsers=${form.musicos} onAdd=${initiateAddMusico} onRemove=${removeMusico} placeholder="Añadir Músico..." icon=${html`<${Icon.Guitar}/>`}/>` : html`<div className="flex flex-wrap gap-2">${form.musicos.map(m=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-blue-500/30">${m}</div>`)}</div>`}
+                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${(data.equipo || []).filter(e=>e.rol && (e.rol.includes('Músico')||e.rol.includes('Líder')))} selectedUsers=${form.musicos} onAdd=${initiateAddMusico} onRemove=${removeMusico} placeholder="Añadir Músico..." icon=${html`<${Icon.Guitar}/>`}/>` : html`<div className="flex flex-wrap gap-2">${form.musicos.map(m=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-blue-500/30">${m}</div>`)}</div>`}
                     </div>
                 </div>
             `}
@@ -669,7 +668,7 @@ function MonthPoster({ servicios }) {
     const monthName = date.toLocaleDateString('es-CO', { month: 'long' });
     const year = date.getFullYear();
     const posterRef = useRef(null);
-    const monthServices = servicios.filter(s => { if(!s.fecha) return false; const d = new Date(s.fecha + "T00:00:00"); return d.getMonth() === date.getMonth() && d.getFullYear() === year; }).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    const monthServices = (servicios || []).filter(s => { if(!s.fecha) return false; const d = new Date(s.fecha + "T00:00:00"); return d.getMonth() === date.getMonth() && d.getFullYear() === year; }).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
     const generatePng = async () => { if (posterRef.current) { try { const canvas = await html2canvas(posterRef.current, { backgroundColor: "#0f172a", scale: 2 }); const link = document.createElement('a'); link.download = `Cronograma-${monthName}.png`; link.href = canvas.toDataURL(); link.click(); } catch (err) { alert("Error"); } } };
 
     return html`
@@ -679,36 +678,6 @@ function MonthPoster({ servicios }) {
             <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const d = new Date(s.fecha + "T00:00:00"); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div>
         </div>
     `;
-}
-
-function ServiceDetailModal({ service, teamData, onClose }) {
-    if(!service) return null;
-    const printRef = useRef(null);
-    const getInstrument = (name) => { const member = teamData.find(m => m.nombre === name); return member ? member.instrumento : "Músico"; };
-    const d = new Date(service.fecha + "T00:00:00");
-    const generatePng = async () => { if (printRef.current) { try { const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); const link = document.createElement('a'); link.download = `Servicio-${service.fecha}.png`; link.href = canvas.toDataURL(); link.click(); } catch (err) { alert("Error"); } } };
-
-    return html`
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm"><div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col"><button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button><div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl"><div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl"><div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div><h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${d.getDate()}</h2><p className="text-sm uppercase tracking-widest z-10 opacity-90">${d.toLocaleDateString('es-CO', {month:'long'}).toUpperCase()}</p><div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div></div><div className="p-6 pt-8 space-y-6"><div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div><div className="grid grid-cols-2 gap-4"><div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div><div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div></div><div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div></div></div><div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div></div></div>
-    `;
-}
-
-function MaintenanceView({ data, isAdmin, refresh }) {
-    const [viewMode, setViewMode] = useState('LIST'); 
-    const [selectedEq, setSelectedEq] = useState(null);
-    const [formMant, setFormMant] = useState({ idEquipo: '', fecha: new Date().toISOString().split('T')[0], responsable: '', costo: 0, descripcion: '' });
-    const [formEq, setFormEq] = useState({ id: '', nombre: '', ubicacion: '', frecuencia: 6, obs: '' });
-    const getStatusColor = (d) => { if(!d) return 'text-slate-500'; const diff = (new Date(d) - new Date())/(1000*60*60*24); return diff<0 ? 'text-red-500 font-bold' : diff<30 ? 'text-yellow-500' : 'text-green-500'; };
-    const handleSaveMant = () => { if(!selectedEq || !formMant.descripcion) return alert("Datos?"); callGasApi('saveMaintenance', { ...formMant, idEquipo: selectedEq.id }, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
-    const handleSaveEq = () => { if(!formEq.nombre) return alert("Nombre?"); callGasApi('saveEquipment', formEq, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
-    const handleDeleteEq = (id) => { if(confirm("¿Eliminar?")) callGasApi('deleteEquipment', {id}, '1234').then(refresh); };
-    return html`
-        <div className="space-y-6 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.Wrench} className="text-purple-500"/> Gestión de Equipos</h2></div>${isAdmin && viewMode === 'LIST' && html`<button onClick=${() => {setFormEq({id:'',nombre:'',ubicacion:'',frecuencia:6,obs:''}); setViewMode('NEW_EQ');}} className="w-full bg-slate-800 py-3 rounded-xl text-purple-400 font-bold text-sm border border-purple-500/30 mb-4">+ Nuevo Equipo</button>`}${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción" value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3"><input className="input-dark" placeholder="Nombre" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} /><input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} /><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div></div></div>`}${viewMode === 'LIST' && html`<div className="space-y-3">${data.map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Frec: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}</div>
-    `;
-}
-
-function HistoryView({ data }) {
-    return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${data.map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
 }
 
 // ================= APP PRINCIPAL =================
@@ -750,7 +719,7 @@ function App() {
     return html`
         <div className="bg-universe min-h-screen pb-12 font-sans text-slate-200">
             ${toast && html`<${Toast} message=${toast.msg} type=${toast.type} />`}
-            ${serviceDetail && html`<${ServiceDetailModal} service=${serviceDetail} teamData=${data.equipo} onClose=${() => setServiceDetail(null)} />`}
+            ${serviceDetail && html`<${ServiceDetailModal} service=${serviceDetail} teamData=${data.equipo || []} onClose=${() => setServiceDetail(null)} />`}
             ${!localStorage.getItem('icc_tutorial_seen') && html`<${Manual} onClose=${() => localStorage.setItem('icc_tutorial_seen', 'true')} />`}
             
             ${view !== 'HOME' && html`<div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur border-b border-white/5 p-4 flex items-center shadow-lg"><button onClick=${() => setView('HOME')} className="bg-slate-800 p-2 rounded-full mr-3 text-slate-300 btn-active"><${Icon.ArrowLeft} /></button><h2 className="font-bold text-white uppercase tracking-wider text-sm">${view === 'TEAM' ? 'Equipo' : view}</h2></div>`}
@@ -759,15 +728,15 @@ function App() {
                 ${view === 'HOME' && html`
                     <div className="flex justify-between items-center mb-4">${!isAdmin ? html`<button onClick=${()=>setShowLogin(true)} className="text-xs text-slate-500 flex items-center gap-1 ml-auto"><${Icon.Lock}/> Director</button>` : html`<button onClick=${handleLogout} className="text-xs text-yellow-500 flex items-center gap-1 font-bold ml-auto"><${Icon.Unlock}/> Salir</button>`}</div>
                     <div className="text-center mb-6"><div className="inline-block px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 mb-3"><span className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.2em]">ICC Villa Rosario</span></div><h1 className="text-3xl font-serif text-white italic">Panel de <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 font-cinzel font-bold not-italic">Adoración</span></h1></div>
-                    <${UpcomingServicesList} servicios=${data.servicios} onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }} onViewDetail=${(s) => setServiceDetail(s)} onNew=${() => { if(isAdmin) { setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); setView('SERVICE_EDITOR'); } else { alert("Solo Admin"); } }} onHistory=${handleGenerateHistory} isAdmin=${isAdmin} />
+                    <${UpcomingServicesList} servicios=${data.servicios || []} onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }} onViewDetail=${(s) => setServiceDetail(s)} onNew=${() => { if(isAdmin) { setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); setView('SERVICE_EDITOR'); } else { alert("Solo Admin"); } }} onHistory=${handleGenerateHistory} isAdmin=${isAdmin} />
                     <div className="grid grid-cols-2 gap-3 mb-6"><button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active"><${Icon.Calendar} /><span className="font-bold text-xs text-yellow-100">Cronograma</span></button><button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700"><${Icon.History} /><span className="font-bold text-xs text-white">Historial</span></button></div>
                     <div className="space-y-3"><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
-                ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo} isAdmin=${isAdmin} refresh=${fetchData} />`}
+                ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
                 ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
-                ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios} />`}
-                ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'HISTORY' && html`<${HistoryView} data=${data.historial} />`}
+                ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios || []} />`}
+                ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
+                ${view === 'HISTORY' && html`<${HistoryView} data=${data.historial || []} />`}
             </div>
             ${showLogin && html`<div className="bg-universe fixed inset-0 z-[80] flex flex-col items-center justify-center p-6 fade-in"><div className="glass p-8 rounded-2xl w-full max-w-sm text-center"><h2 className="text-white font-serif text-2xl mb-4">Acceso Director</h2><input type="password" className="input-dark mb-4 text-center text-xl tracking-widest" placeholder="PIN" value=${passwordInput} onInput=${e=>setPasswordInput(e.target.value)} /><div className="flex gap-2"><button onClick=${()=>setShowLogin(false)} className="flex-1 py-3 bg-slate-800 rounded-xl text-slate-400">Cancelar</button><button onClick=${handleLogin} className="flex-1 py-3 bg-yellow-600 rounded-xl text-black font-bold">Entrar</button></div></div></div>`}
         </div>
