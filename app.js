@@ -1,13 +1,13 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
- * VERSION 8.2 (HOTFIX CRÍTICO)
- * ESTADO: CÓDIGO EXPANDIDO, SIN RECORTES. FIX: TypeError showToastCallback
+ * Integridad Absoluta: Código Completo
+ * Versión 9.1: Fix Listado y Eliminación de Servicios Atrasados
  */
 
-// ================= CONFIGURACIÓN =================
+// ================= 1. CONFIGURACIÓN Y API =================
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyevrQgX1ifj-hKDnkZBXuoSA_M6blg3zz3rbC-9In7QrXbn5obsCxZZbDj7sl5aQMxxA/exec";
-
-// ================= PUENTE DE CONEXIÓN =================
+const html = htm.bind(React.createElement);
+const { useState, useEffect, useRef } = React;
 let showToastCallback = null;
 
 async function callGasApi(action, payload = {}, password = "") {
@@ -16,11 +16,15 @@ async function callGasApi(action, payload = {}, password = "") {
             showToastCallback("Procesando...", "loading");
         }
         
-        const response = await fetch(GAS_API_URL, {
+        const fetchPromise = fetch(GAS_API_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" }, 
             body: JSON.stringify({ action, payload, password })
         });
+        
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000));
+        
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
         const result = await response.json();
         
         if(showToastCallback && result.status === 'success') {
@@ -31,55 +35,17 @@ async function callGasApi(action, payload = {}, password = "") {
         
         return result;
     } catch (error) {
-        if(showToastCallback) showToastCallback("Error de Red", "error");
+        if(showToastCallback) {
+            if (error.message === "Timeout") showToastCallback("Tiempo de espera agotado", "error");
+            else showToastCallback("Error de Red", "error");
+        }
         console.error("API Error:", error);
-        return { status: "error", message: "Sin conexión" };
+        return { status: "error", message: error.message || "Sin conexión" };
     }
 }
 
-// ================= INICIO LÓGICA REACT =================
-const html = htm.bind(React.createElement);
-const { useState, useEffect, useRef } = React;
-
-// --- ICONOS SVG ---
-const Icon = {
-    ArrowLeft: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
-    ArrowRight: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`,
-    ArrowUp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>`,
-    ArrowDown: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`,
-    Calendar: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>`,
-    Music: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
-    Users: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
-    Plus: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
-    Trash: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-    Check: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>`,
-    Copy: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-    Fire: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
-    Dove: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12c-4 0-7-4-7-4s4 4 2 9a4 4 0 0 1-4 4c-3 0-5-3-5-6s-2-4-5-5L2 9a2 2 0 0 1 0-3l3-3a6 6 0 0 1 6 0l4 4a5 5 0 0 1 5 5 2 2 0 0 1 2 0z"/></svg>`,
-    Hand: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`, 
-    Ring: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>`, 
-    Gift: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.9 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>`,
-    Info: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
-    List: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
-    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
-    Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
-    Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`,
-    Activity: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-    Wrench: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
-    History: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`,
-    Mic: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`,
-    Guitar: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><circle cx="12" cy="18" r="4"/><path d="M12 12v3"/></svg>`,
-    Edit: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
-    Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-    Download: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-    BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
-};
-
-// --- UTILIDADES ---
-const SafeText = ({ content }) => {
-    if (content === null || content === undefined) return "";
-    return String(content);
-};
+// ================= 2. UTILIDADES =================
+const SafeText = ({ content }) => content ? String(content) : "";
 
 const safeJoin = (list) => {
     if (!Array.isArray(list)) return "";
@@ -124,7 +90,41 @@ const parseDateParts = (dateString) => {
     } catch(e) { return { day: "??", month: "???", fullMonth: "???" }; }
 };
 
-// ================= COMPONENTES BASE =================
+// ================= 3. ICONOS =================
+const Icon = {
+    ArrowLeft: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+    ArrowRight: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`,
+    ArrowUp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>`,
+    ArrowDown: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`,
+    Calendar: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>`,
+    Music: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+    Users: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    Plus: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+    Trash: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+    Check: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>`,
+    Copy: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+    Fire: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
+    Dove: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12c-4 0-7-4-7-4s4 4 2 9a4 4 0 0 1-4 4c-3 0-5-3-5-6s-2-4-5-5L2 9a2 2 0 0 1 0-3l3-3a6 6 0 0 1 6 0l4 4a5 5 0 0 1 5 5 2 2 0 0 1 2 0z"/></svg>`,
+    Hand: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`, 
+    Ring: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>`, 
+    Gift: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.9 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>`,
+    Info: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+    List: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
+    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
+    Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+    Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`,
+    Activity: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    Wrench: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+    History: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`,
+    Mic: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`,
+    Guitar: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><circle cx="12" cy="18" r="4"/><path d="M12 12v3"/></svg>`,
+    Edit: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
+    Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    Download: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+    BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
+};
+
+// ================= 4. COMPONENTES BASE =================
 
 const SplashScreen = () => {
     return html`
@@ -259,7 +259,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= COMPONENTES LÓGICOS (ORDENADOS) =================
+// ================= 5. COMPONENTES LÓGICOS =================
 
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
@@ -448,109 +448,65 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
-function TeamManager({ data, isAdmin, refresh }) {
-    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
-    const [isEditing, setIsEditing] = useState(false);
-    
-    const roleOptions = ["Líder", "Corista", "Músico"];
-
-    const toggleRole = (role) => {
-        if (form.roles.includes(role)) {
-            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
-        } else {
-            setForm({ ...form, roles: [...form.roles, role] });
-        }
-    };
-
-    const save = () => { 
-        if (!form.nombre) return alert("Falta el nombre");
-        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
-        
-        if (!isEditing) {
-            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
-            if (exists) return alert("Este miembro ya existe. Edita el existente.");
-        }
-
-        const payload = { ...form, rol: form.roles.join(', ') };
-
-        callGasApi('saveMember', payload, '1234').then(() => { 
-            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
-            setIsEditing(false); 
-            refresh(); 
-        }); 
-    };
-    
-    const edit = (m) => { 
-        const rolesArray = m.rol ? m.rol.split(', ') : [];
-        setForm({ ...m, roles: rolesArray }); 
-        setIsEditing(true); 
-    };
-
-    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
-    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
-
-    return html`
-        <div className="space-y-6">
-            ${isAdmin ? html`
-                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
-                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
-                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
-                    
-                    <div className="flex gap-4 my-2">
-                        ${roleOptions.map(r => html`
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
-                                <span className="text-xs text-slate-300">${r}</span>
-                            </label>
-                        `)}
-                    </div>
-
-                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
-                    
-                    <div className="flex gap-2">
-                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
-                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
-                    </div>
-                </div>
-            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
-            
-            <div className="space-y-2 pb-10">
-                ${(data || []).map(m => html`
-                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
-                            <div>
-                                <div className="font-bold text-sm text-white">${m.nombre}</div>
-                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
-                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
-                            </div>
-                        </div>
-                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
-                    </div>
-                `)}
-            </div>
-        </div>
-    `;
-}
-
+// --- UPCOMING SERVICES (MODIFICADO PARA MOSTRAR TODO Y ETIQUETAR ATRASADOS) ---
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
-    const upcoming = (servicios || []).filter(s => s && s.fecha && s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    
+    // FIX: Quitamos la restricción de s.fecha >= today para que se vean todos los activos en DB
+    const allServices = (servicios || []).filter(s => s && s.fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
     
     return html`
         <div className="mb-8">
-            <div className="flex justify-between items-baseline px-1 mb-2"><h3 className="text-sm font-bold text-white uppercase tracking-wider">Próximos Servicios</h3>${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}</div>
+            <div className="flex justify-between items-baseline px-1 mb-2">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Servicios Activos</h3>
+                ${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}
+            </div>
             <div className="space-y-3">
-                ${upcoming.map(s => {
+                ${allServices.map(s => {
                     const parsed = parseDateParts(s.fecha);
                     const songsCount = s.repertorio ? s.repertorio.length : 0;
-                    return html`<div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group"><div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div><div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}><div className="flex items-center gap-2 mb-1"><span className="text-lg font-bold text-white leading-none">${parsed.day}</span><span className="text-xs text-slate-400 uppercase font-bold">${parsed.month}</span>${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider">Borrador</span>`}</div><div className="text-sm text-slate-200"><span className="text-slate-500 text-xs mr-1">Dirige:</span><${SafeText} content=${s.lider || "Sin asignar"} /></div></div><div className="text-right flex flex-col items-end gap-2"><div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div><div className="flex gap-2 items-center">${isAdmin ? html`<button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>` : (songsCount === 0 ? html`<button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>` : html`<div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>`)}<button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button></div></div></div>`;
+                    const isPast = s.fecha < today; // Determina si la fecha ya pasó
+                    
+                    return html`
+                        <div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
+                            <div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div>
+                            
+                            <div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}>
+                                <div className="flex items-center flex-wrap gap-2 mb-1">
+                                    <span className="text-lg font-bold text-white leading-none">${parsed.day}</span>
+                                    <span className="text-xs text-slate-400 uppercase font-bold">${parsed.month}</span>
+                                    
+                                    ${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Borrador</span>`}
+                                    ${isPast && html`<span className="text-[8px] bg-red-900/80 text-red-300 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Atrasado</span>`}
+                                </div>
+                                <div className="text-sm text-slate-200">
+                                    <span className="text-slate-500 text-xs mr-1">Dirige:</span>
+                                    <${SafeText} content=${s.lider || "Sin asignar"} />
+                                </div>
+                            </div>
+                            
+                            <div className="text-right flex flex-col items-end gap-2">
+                                <div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div>
+                                <div className="flex gap-2 items-center">
+                                    ${isAdmin ? html`
+                                        <button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>
+                                    ` : (songsCount === 0 ? html`
+                                        <button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>
+                                    ` : html`
+                                        <div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>
+                                    `)}
+                                    <button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 })}
             </div>
         </div>
     `;
 }
 
+// --- SERVICE DETAIL MODAL (PNG) ---
 function ServiceDetailModal({ service, teamData, onClose }) {
     if(!service) return null;
     const printRef = useRef(null);
@@ -595,6 +551,7 @@ function ServiceDetailModal({ service, teamData, onClose }) {
     `;
 }
 
+// --- SERVICE EDITOR (MODIFICADO CON BOTÓN ELIMINAR) ---
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
@@ -711,8 +668,65 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
             ${tab === 'SETLIST' && html`<div className="space-y-6 text-center pt-4"><button onClick=${copySetlist} className="w-full bg-green-600 py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 btn-active"><${Icon.WhatsApp} /> Copiar Setlist</button></div>`}
             
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50">
+                ${service.id && isAdmin && html`
+                    <button onClick=${() => onDelete(service.id)} className="px-4 py-3 bg-red-900/40 text-red-500 rounded-xl font-bold shadow-lg border border-red-900/50 hover:bg-red-800/60 transition"><${Icon.Trash}/></button>
+                `}
                 <button onClick=${onCancel} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold text-slate-400">Cancelar</button>
                 <button onClick=${() => onSave(form)} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">Guardar Cambios</button>
+            </div>
+        </div>
+    `;
+}
+
+function TeamManager({ data, isAdmin, refresh }) {
+    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
+    const [isEditing, setIsEditing] = useState(false);
+    const roleOptions = ["Líder", "Corista", "Músico"];
+    const toggleRole = (role) => { if (form.roles.includes(role)) { setForm({ ...form, roles: form.roles.filter(r => r !== role) }); } else { setForm({ ...form, roles: [...form.roles, role] }); } };
+    const save = () => { if (!form.nombre) return alert("Falta el nombre"); if (form.roles.length === 0) return alert("Selecciona al menos un rol"); if (!isEditing && (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase())) return alert("Ya existe."); const payload = { ...form, rol: form.roles.join(', ') }; callGasApi('saveMember', payload, '1234').then(() => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); refresh(); }); };
+    const edit = (m) => { const rolesArray = m.rol ? m.rol.split(', ') : []; setForm({ ...m, roles: rolesArray }); setIsEditing(true); };
+    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
+    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
+
+    return html`
+        <div className="space-y-6">
+            ${isAdmin ? html`
+                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
+                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
+                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
+                    
+                    <div className="flex gap-4 my-2">
+                        ${roleOptions.map(r => html`
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
+                                <span className="text-xs text-slate-300">${r}</span>
+                            </label>
+                        `)}
+                    </div>
+
+                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
+                    
+                    <div className="flex gap-2">
+                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
+                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
+                    </div>
+                </div>
+            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
+            
+            <div className="space-y-2 pb-10">
+                ${(data || []).map(m => html`
+                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                            <div>
+                                <div className="font-bold text-sm text-white">${m.nombre}</div>
+                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
+                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
+                            </div>
+                        </div>
+                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
+                    </div>
+                `)}
             </div>
         </div>
     `;
@@ -732,6 +746,15 @@ function MonthPoster({ servicios }) {
             <div className="flex justify-between items-center glass p-2 rounded-xl mb-4"><button onClick=${() => setOffset(offset - 1)} className="p-2"><${Icon.ArrowLeft}/></button><span className="font-bold uppercase text-sm">${monthName} ${year}</span><button onClick=${() => setOffset(offset + 1)} className="p-2"><${Icon.ArrowRight}/></button></div>
             <button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active"><${Icon.Download} /> Guardar Imagen (PNG)</button>
             <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const parsed = parseDateParts(s.fecha); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${parsed.day} de ${parsed.month}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div>
+        </div>
+    `;
+}
+
+function HistoryView({ data }) {
+    return html`
+        <div className="space-y-4 pb-12 fade-in">
+            <div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>
+            ${(data || []).map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}
         </div>
     `;
 }
@@ -758,15 +781,6 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     `;
 }
 
-function HistoryView({ data }) {
-    return html`
-        <div className="space-y-4 pb-12 fade-in">
-            <div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>
-            ${(data || []).map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}
-        </div>
-    `;
-}
-
 // ================= 7. APP PRINCIPAL =================
 
 function App() {
@@ -781,7 +795,6 @@ function App() {
     const [serviceDetail, setServiceDetail] = useState(null); 
 
     useEffect(() => {
-        // Asignación correcta de la función global
         showToastCallback = (msg, type) => { 
             setToast({ msg, type }); 
             if(type !== 'loading') setTimeout(() => setToast(null), 3000); 
@@ -827,7 +840,7 @@ function App() {
             if(showToastCallback) showToastCallback("Acceso Correcto", "success");
         } else { 
             alert("Contraseña incorrecta"); 
-            if(showToastCallback) setToast(null); // Quitar el loading
+            if(showToastCallback) setToast(null);
         }
     };
 
@@ -849,8 +862,22 @@ function App() {
         }
     };
 
+    // FIX 2: NUEVA FUNCIÓN PARA ELIMINAR SERVICIOS (Conectada al botón de la papelera)
+    const handleDeleteService = async (id) => {
+        if (confirm("¿Estás seguro de eliminar este servicio permanentemente?")) {
+            if(showToastCallback) showToastCallback("Eliminando...", "loading");
+            const res = await callGasApi('deleteService', { id }, '1234');
+            if (res && res.status === 'success') {
+                const newData = {...data};
+                newData.servicios = (newData.servicios || []).filter(s => s && s.id !== id);
+                setData(newData);
+                setView('HOME');
+            }
+        }
+    };
+
     const handleGenerateHistory = (id) => { 
-        if(confirm("¿Cerrar servicio?")) {
+        if(confirm("¿Cerrar servicio y enviarlo al historial? (Se borrará de los activos)")) {
             callGasApi('generateHistory', { idServicio: id }, '1234').then(() => { fetchData(); }); 
         }
     };
@@ -876,7 +903,7 @@ function App() {
                     <div className="space-y-3"><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
                 ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
-                ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
+                ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onDelete=${handleDeleteService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
                 ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios || []} />`}
                 ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
                 ${view === 'HISTORY' && html`<${HistoryView} data=${data.historial || []} />`}
@@ -886,5 +913,28 @@ function App() {
     `;
 }
 
+// ================= 8. ERROR BOUNDARY =================
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) { return { hasError: true, error }; }
+    render() {
+        if (this.state.hasError) {
+            return html`
+                <div style=${{padding: '2rem', backgroundColor: '#7f1d1d', color: 'white', minHeight: '100vh', fontFamily: 'sans-serif'}}>
+                    <h2 style=${{fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem'}}>🚨 Error Crítico</h2>
+                    <p style=${{marginBottom: '1rem'}}>La aplicación se detuvo por un error inesperado.</p>
+                    <button onClick=${() => { localStorage.clear(); window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now(); }} style=${{padding: '1rem', backgroundColor: '#b91c1c', borderRadius: '0.5rem', fontWeight: 'bold'}}>
+                        Reinciar Aplicación
+                    </button>
+                </div>
+            `;
+        }
+        return this.props.children;
+    }
+}
+
 // ================= RENDER FINAL =================
-ReactDOM.render(html`<${App} />`, document.getElementById('root'));
+ReactDOM.render(html`<${ErrorBoundary}><${App} /></${ErrorBoundary}>`, document.getElementById('root'));
