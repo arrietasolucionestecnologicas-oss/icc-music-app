@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 7.7: Fix Modal PNG y Estabilidad
+ * AUDITORÍA: Seguridad, Rendimiento, Mantenibilidad, y Timeout
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -15,22 +15,32 @@ async function callGasApi(action, payload = {}, password = "") {
         if(showToastCallback && (action.startsWith('save') || action.startsWith('delete'))) {
             showToastCallback("Procesando...", "loading");
         }
-        const response = await fetch(GAS_API_URL, {
+        
+        const fetchPromise = fetch(GAS_API_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" }, 
             body: JSON.stringify({ action, payload, password })
         });
+        
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000));
+        
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
         const result = await response.json();
+        
         if(showToastCallback && result.status === 'success') {
             showToastCallback("¡Acción Exitosa!", "success");
         } else if (showToastCallback && result.status !== 'success') {
             showToastCallback("Error: " + result.message, "error");
         }
+        
         return result;
     } catch (error) {
-        if(showToastCallback) showToastCallback("Error de Red", "error");
+        if(showToastCallback) {
+            if (error.message === "Timeout") showToastCallback("Tiempo de espera agotado", "error");
+            else showToastCallback("Error de Red", "error");
+        }
         console.error("API Error:", error);
-        return { status: "error", message: "Sin conexión" };
+        return { status: "error", message: error.message || "Sin conexión" };
     }
 }
 
@@ -67,11 +77,10 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
-// FIX FECHAS (Lectura de texto para evitar UTC shift)
 const parseDateParts = (dateString) => {
     if(!dateString) return { day: "??", month: "???" };
     try {
-        const parts = dateString.split('-'); // YYYY-MM-DD
+        const parts = dateString.split('-');
         if(parts.length !== 3) return { day: "??", month: "???" };
         const day = parts[2];
         const monthIndex = parseInt(parts[1]) - 1;
@@ -89,7 +98,7 @@ const Icon = {
     ArrowDown: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`,
     Calendar: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>`,
     Music: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
-    Users: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    Users: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     Plus: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
     Trash: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
     Check: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>`,
@@ -117,7 +126,6 @@ const Icon = {
 
 // ================= 4. COMPONENTES BASE =================
 
-// 1. SPLASH SCREEN
 const SplashScreen = () => {
     return html`
         <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
@@ -134,7 +142,6 @@ const SplashScreen = () => {
     `;
 };
 
-// 2. TOAST
 function Toast({ message, type }) {
     const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
     return html`
@@ -147,7 +154,6 @@ function Toast({ message, type }) {
     `;
 }
 
-// 3. MANUAL
 function Manual({ onClose }) {
     return html`
         <div className="fixed inset-0 bg-black/90 z-[90] flex items-center justify-center p-4 fade-in">
@@ -166,7 +172,6 @@ function Manual({ onClose }) {
     `;
 }
 
-// 4. LOGS
 function ActivityModal({ onClose }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -202,7 +207,6 @@ function ActivityModal({ onClose }) {
     `;
 }
 
-// 5. SEARCH SELECT
 function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeholder, icon }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
@@ -228,7 +232,7 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     };
 
     return html`
-        <div className="mb-4">
+        <div className="mb-4 relative">
             <div className="relative">
                 <input className="input-dark pl-10" placeholder=${placeholder} value=${query} onInput=${handleSearch} />
                 <div className="absolute left-3 top-3 text-slate-500">${icon}</div>
@@ -255,9 +259,8 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
     `;
 }
 
-// ================= 6. COMPONENTES LÓGICOS (ORDENADOS) =================
+// ================= 6. COMPONENTES LÓGICOS =================
 
-// --- REPERTOIRE PLANNER ---
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     const [activeTab, setActiveTab] = useState('Rápida'); 
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
@@ -401,7 +404,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
             <div className="shrink-0 bg-slate-900/50 border-b border-slate-800">
                 <div className="flex overflow-x-auto p-2 gap-2">
                     ${tipos.map(t => html`
-                        <button onClick=${() => setActiveTab(t)} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>
+                        <button onClick=${() => { setActiveTab(t); setSuggestions({}); }} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>
                             ${t}
                         </button>
                     `)}
@@ -443,7 +446,6 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
-// --- TEAM MANAGER ---
 function TeamManager({ data, isAdmin, refresh }) {
     const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
@@ -529,7 +531,6 @@ function TeamManager({ data, isAdmin, refresh }) {
     `;
 }
 
-// --- UPCOMING SERVICES LIST (COMPONENTE ESENCIAL) ---
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
     const today = new Date().toISOString().split('T')[0];
     const upcoming = (servicios || []).filter(s => s.fecha >= today).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
@@ -548,7 +549,6 @@ function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew,
     `;
 }
 
-// --- SERVICE DETAIL MODAL (MODAL PNG) ---
 function ServiceDetailModal({ service, teamData, onClose }) {
     if(!service) return null;
     const printRef = useRef(null);
@@ -593,17 +593,14 @@ function ServiceDetailModal({ service, teamData, onClose }) {
     `;
 }
 
-// --- SERVICE EDITOR ---
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
     const [showPlanner, setShowPlanner] = useState(false);
     
-    // Modal de Selección de Instrumento
     const [showInstModal, setShowInstModal] = useState(false);
     const [tempMember, setTempMember] = useState(null);
 
-    // Helpers
     const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
     const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
     
@@ -642,7 +639,6 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
         navigator.clipboard.writeText(t); alert("Copiado");
     };
 
-    // Extraer instrumentos
     const availableInstruments = tempMember ? (tempMember.instrumento || "").split(',').map(s => s.trim()).filter(s => s) : [];
 
     return html`
@@ -669,7 +665,6 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 
             <div className="sticky top-0 z-40 bg-[#020617]/95 border-b border-white/5 p-2 flex justify-between items-center mb-4 backdrop-blur">
                 <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 overflow-x-auto flex-1 mr-2">${['INFO', 'EQUIPO', 'REPERTORIO', 'SETLIST'].map(t => html`<button key=${t} onClick=${() => setTab(t)} className=${`flex-1 py-2 text-[10px] font-bold rounded-lg transition px-2 ${tab === t ? 'bg-slate-700 text-white shadow' : 'text-slate-500'}`}>${t}</button>`)}</div>
-                
                 <button onClick=${() => onViewDetail(form)} className="bg-blue-600 px-3 py-2 rounded-lg text-white shadow-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-500 transition">
                     <${Icon.Activity}/> <span className="hidden sm:inline">Generar</span> PNG
                 </button>
@@ -735,13 +730,9 @@ function MonthPoster({ servicios }) {
         <div className="fade-in pb-10">
             <div className="flex justify-between items-center glass p-2 rounded-xl mb-4"><button onClick=${() => setOffset(offset - 1)} className="p-2"><${Icon.ArrowLeft}/></button><span className="font-bold uppercase text-sm">${monthName} ${year}</span><button onClick=${() => setOffset(offset + 1)} className="p-2"><${Icon.ArrowRight}/></button></div>
             <button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active"><${Icon.Download} /> Guardar Imagen (PNG)</button>
-            <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const d = new Date(s.fecha + "T00:00:00"); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div>
+            <div ref=${posterRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900"><div className="text-center border-b border-yellow-500/30 pb-4 mb-4"><p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Cronograma Oficial</p><h2 className="text-2xl font-serif font-bold text-white uppercase">${monthName}</h2></div><div className="space-y-6">${monthServices.map(s => { const parsed = parseDateParts(s.fecha); return html`<div className="border-l-2 border-yellow-500 pl-4 relative"><div className="flex justify-between items-baseline mb-1"><h3 className="text-lg font-bold text-white capitalize">${parsed.day} de ${parsed.month}</h3><span className="text-[9px] uppercase font-bold text-yellow-500">${s.jornada}</span></div><div className="text-sm mb-2"><span className="text-slate-400 block text-xs">Dirige:</span><strong className="text-white text-base">${s.lider}</strong></div><div className="grid grid-cols-1 gap-1 text-xs text-slate-300"><div><span className="text-yellow-600 font-bold mr-1">Coros:</span>${safeJoin(s.coristas)||'Pendiente'}</div><div><span className="text-blue-500 font-bold mr-1">Músicos:</span>${safeJoin(s.musicos)||'Pendiente'}</div></div></div>`; })}</div><div className="mt-6 text-center opacity-50"><p className="text-[8px] text-slate-500 uppercase tracking-widest">ICC Villa Rosario • Ministerio de Alabanza</p></div></div>
         </div>
     `;
-}
-
-function HistoryView({ data }) {
-    return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${(data || []).map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
 }
 
 function MaintenanceView({ data, isAdmin, refresh }) {
@@ -753,11 +744,17 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     const handleSaveMant = () => { if(!selectedEq || !formMant.descripcion) return alert("Datos?"); callGasApi('saveMaintenance', { ...formMant, idEquipo: selectedEq.id }, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
     const handleSaveEq = () => { if(!formEq.nombre) return alert("Nombre?"); callGasApi('saveEquipment', formEq, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
     const handleDeleteEq = (id) => { if(confirm("¿Eliminar?")) callGasApi('deleteEquipment', {id}, '1234').then(refresh); };
+    
     return html`
-        <div className="space-y-6 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.Wrench} className="text-purple-500"/> Gestión de Equipos</h2></div>${isAdmin && viewMode === 'LIST' && html`<button onClick=${() => {setFormEq({id:'',nombre:'',ubicacion:'',frecuencia:6,obs:''}); setViewMode('NEW_EQ');}} className="w-full bg-slate-800 py-3 rounded-xl text-purple-400 font-bold text-sm border border-purple-500/30 mb-4">+ Nuevo Equipo</button>`}${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción" value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3"><input className="input-dark" placeholder="Nombre" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} /><input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} /><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div></div></div>`}${viewMode === 'LIST' && html`<div className="space-y-3">${data.map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Frec: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}</div>`;
+        <div className="space-y-6 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.Wrench} className="text-purple-500"/> Gestión de Equipos</h2></div>${isAdmin && viewMode === 'LIST' && html`<button onClick=${() => {setFormEq({id:'',nombre:'',ubicacion:'',frecuencia:6,obs:''}); setViewMode('NEW_EQ');}} className="w-full bg-slate-800 py-3 rounded-xl text-purple-400 font-bold text-sm border border-purple-500/30 mb-4">+ Nuevo Equipo</button>`}${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción" value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3"><input className="input-dark" placeholder="Nombre" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} /><input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} /><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div></div></div>`}${viewMode === 'LIST' && html`<div className="space-y-3">${(data || []).map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Frec: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}</div>
+    `;
 }
 
-// ================= 6. APP PRINCIPAL =================
+function HistoryView({ data }) {
+    return html`<div className="space-y-4 pb-12 fade-in"><div className="text-center mb-4"><h2 className="font-serif text-xl text-white flex items-center justify-center gap-2"><${Icon.History} className="text-blue-500"/> Historial</h2></div>${(data || []).map(h => html`<div key=${h.id} className="glass p-4 rounded-xl border border-slate-700"><div className="flex justify-between items-baseline mb-2"><span className="text-yellow-500 font-bold text-sm">${h.fecha}</span><span className="text-[10px] text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">${h.tipo}</span></div><div className="bg-slate-900/50 p-3 rounded-lg text-xs text-slate-300 italic mb-3 whitespace-pre-line border-l-2 border-green-500">${h.canciones}</div></div>`)}</div>`;
+}
+
+// ================= 7. APP PRINCIPAL =================
 
 function App() {
     const [view, setView] = useState('HOME');
@@ -774,22 +771,70 @@ function App() {
 
     useEffect(() => { 
         const savedSession = localStorage.getItem('icc_admin');
-        if(savedSession === 'true') setIsAdmin(true);
+        const sessionTime = localStorage.getItem('icc_admin_time');
+        
+        if(savedSession === 'true' && sessionTime) {
+            const diffHours = (new Date().getTime() - parseInt(sessionTime)) / (1000 * 60 * 60);
+            if (diffHours < 8) {
+                setIsAdmin(true);
+            } else {
+                localStorage.removeItem('icc_admin');
+                localStorage.removeItem('icc_admin_time');
+            }
+        }
+        
         setTimeout(() => {
             if (!localStorage.getItem('icc_tutorial_seen')) setView('HOME'); 
         }, 3500);
         fetchData(); 
     }, []);
 
-    const fetchData = () => { callGasApi('getInitialData').then(res => { if (res.status === 'success') setData(res.data); setLoading(false); }); };
-    const handleLogin = () => { if(passwordInput === '1234' || passwordInput === '6991') { setIsAdmin(true); localStorage.setItem('icc_admin', 'true'); setShowLogin(false); setPasswordInput(""); } else { alert("Contraseña incorrecta"); } };
-    const handleLogout = () => { setIsAdmin(false); localStorage.removeItem('icc_admin'); };
-    const handleSaveService = (srv) => {
-        const newData = {...data}; const idx = newData.servicios.findIndex(s => s.id === srv.id);
-        if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
-        setData(newData); setView('HOME'); callGasApi('saveService', srv, '1234');
+    const fetchData = () => { 
+        callGasApi('getInitialData').then(res => { 
+            if (res.status === 'success') setData(res.data); 
+            setLoading(false); 
+        }); 
     };
-    const handleGenerateHistory = (id) => { if(confirm("¿Cerrar servicio?")) callGasApi('generateHistory', { idServicio: id }, '1234').then(() => { alert("Cerrado"); fetchData(); }); };
+
+    const handleLogin = async () => { 
+        showToastCallback("Verificando...", "loading");
+        const res = await callGasApi('verificarPassword', {}, passwordInput);
+        if (res.status === 'success') {
+            setIsAdmin(true); 
+            localStorage.setItem('icc_admin', 'true'); 
+            localStorage.setItem('icc_admin_time', new Date().getTime().toString());
+            setShowLogin(false); 
+            setPasswordInput(""); 
+            showToastCallback("Acceso Correcto", "success");
+        } else { 
+            alert("Contraseña incorrecta"); 
+        }
+    };
+
+    const handleLogout = () => { 
+        setIsAdmin(false); 
+        localStorage.removeItem('icc_admin'); 
+        localStorage.removeItem('icc_admin_time');
+    };
+
+    const handleSaveService = async (srv) => {
+        showToastCallback("Guardando...", "loading");
+        // Optimizacion: se espera la confirmación del servidor (B3.2)
+        const res = await callGasApi('saveService', srv, '1234');
+        if (res.status === 'success') {
+            const newData = {...data}; 
+            const idx = newData.servicios.findIndex(s => s.id === srv.id);
+            if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
+            setData(newData); 
+            setView('HOME'); 
+        }
+    };
+
+    const handleGenerateHistory = (id) => { 
+        if(confirm("¿Cerrar servicio?")) {
+            callGasApi('generateHistory', { idServicio: id }, '1234').then(() => { fetchData(); }); 
+        }
+    };
 
     if (loading) return html`<${SplashScreen} />`;
     
@@ -805,7 +850,9 @@ function App() {
                 ${view === 'HOME' && html`
                     <div className="flex justify-between items-center mb-4">${!isAdmin ? html`<button onClick=${()=>setShowLogin(true)} className="text-xs text-slate-500 flex items-center gap-1 ml-auto"><${Icon.Lock}/> Director</button>` : html`<button onClick=${handleLogout} className="text-xs text-yellow-500 flex items-center gap-1 font-bold ml-auto"><${Icon.Unlock}/> Salir</button>`}</div>
                     <div className="text-center mb-6"><div className="inline-block px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 mb-3"><span className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.2em]">ICC Villa Rosario</span></div><h1 className="text-3xl font-serif text-white italic">Panel de <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 font-cinzel font-bold not-italic">Adoración</span></h1></div>
+                    
                     <${UpcomingServicesList} servicios=${data.servicios || []} onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }} onViewDetail=${(s) => setServiceDetail(s)} onNew=${() => { if(isAdmin) { setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); setView('SERVICE_EDITOR'); } else { alert("Solo Admin"); } }} onHistory=${handleGenerateHistory} isAdmin=${isAdmin} />
+                    
                     <div className="grid grid-cols-2 gap-3 mb-6"><button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active"><${Icon.Calendar} /><span className="font-bold text-xs text-yellow-100">Cronograma</span></button><button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700"><${Icon.History} /><span className="font-bold text-xs text-white">Historial</span></button></div>
                     <div className="space-y-3"><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
                 `}
