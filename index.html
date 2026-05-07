@@ -53,7 +53,46 @@
     </div>
   </div>
 
-  <script src="app.js?v=9"></script>
+  <script>
+    console.log("%c🔍 INICIANDO DIAGNÓSTICO PROFUNDO...", "background: blue; color: white; font-size: 14px; padding: 4px;");
+
+    // 1. Interceptar el motor de React para capturar el Error #130 exacto
+    const originalCreate = React.createElement;
+    React.createElement = function(type, props, ...children) {
+      if (type === undefined || type === null) {
+         console.error("%c🚨 BUG REACT #130 CAPTURADO ANTES DEL CRASH", "background: red; color: white; font-size: 16px; padding: 4px;");
+         console.error("Has intentado usar una etiqueta <${Nombre}> pero 'Nombre' no existe o está mal escrito.");
+         console.trace("📍 TRAZA EXACTA (Abre esta flecha y busca la línea que dice 'app.js' para ver dónde te equivocaste):");
+      }
+      return originalCreate.apply(this, [type, props, ...children]);
+    };
+
+    // 2. Verificar que las funciones principales no se hayan roto por un error de sintaxis
+    window.addEventListener('load', () => {
+      const componentes = ['App', 'RepertoirePlanner', 'ServiceEditor', 'TeamManager', 'UpcomingServicesList', 'MonthPoster', 'HistoryView', 'MaintenanceView'];
+      let fallo = false;
+      
+      console.log("Revisando memoria de componentes...");
+      componentes.forEach(comp => {
+        if (typeof window[comp] === 'undefined') {
+          console.error(`❌ FATAL: El componente '${comp}' está UNDEFINED.`);
+          fallo = true;
+        } else {
+          console.log(`✅ ${comp} existe en memoria.`);
+        }
+      });
+
+      if(fallo) {
+        console.error("💡 CONCLUSIÓN: Si un componente sale ❌, significa que dejaste una llave '}' abierta o te faltó un paréntesis en el componente que está justo arriba de él en el código.");
+      }
+    });
+
+    // 3. Capturar variables de estado corruptas
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error("%c🚨 PROMESA FALLIDA (¿Error en Base de Datos?):", "background: orange; color: black; font-size: 14px;", event.reason);
+    });
+  </script>
+  <script src="app.js?v=999"></script>
   
   <script>
     if ('serviceWorker' in navigator) {
