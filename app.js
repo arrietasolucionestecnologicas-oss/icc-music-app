@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 9.1: Fix Listado y Eliminación de Servicios Atrasados
+ * Versión 9.2: Botón de Borrado Rápido en Lista Principal (Admin)
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -448,243 +448,44 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
-// --- UPCOMING SERVICES (MODIFICADO PARA MOSTRAR TODO Y ETIQUETAR ATRASADOS) ---
-function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory }) {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // FIX: Quitamos la restricción de s.fecha >= today para que se vean todos los activos en DB
-    const allServices = (servicios || []).filter(s => s && s.fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    
-    return html`
-        <div className="mb-8">
-            <div className="flex justify-between items-baseline px-1 mb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Servicios Activos</h3>
-                ${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}
-            </div>
-            <div className="space-y-3">
-                ${allServices.map(s => {
-                    const parsed = parseDateParts(s.fecha);
-                    const songsCount = s.repertorio ? s.repertorio.length : 0;
-                    const isPast = s.fecha < today; // Determina si la fecha ya pasó
-                    
-                    return html`
-                        <div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
-                            <div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div>
-                            
-                            <div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}>
-                                <div className="flex items-center flex-wrap gap-2 mb-1">
-                                    <span className="text-lg font-bold text-white leading-none">${parsed.day}</span>
-                                    <span className="text-xs text-slate-400 uppercase font-bold">${parsed.month}</span>
-                                    
-                                    ${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Borrador</span>`}
-                                    ${isPast && html`<span className="text-[8px] bg-red-900/80 text-red-300 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Atrasado</span>`}
-                                </div>
-                                <div className="text-sm text-slate-200">
-                                    <span className="text-slate-500 text-xs mr-1">Dirige:</span>
-                                    <${SafeText} content=${s.lider || "Sin asignar"} />
-                                </div>
-                            </div>
-                            
-                            <div className="text-right flex flex-col items-end gap-2">
-                                <div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div>
-                                <div className="flex gap-2 items-center">
-                                    ${isAdmin ? html`
-                                        <button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>
-                                    ` : (songsCount === 0 ? html`
-                                        <button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>
-                                    ` : html`
-                                        <div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>
-                                    `)}
-                                    <button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                })}
-            </div>
-        </div>
-    `;
-}
-
-// --- SERVICE DETAIL MODAL (PNG) ---
-function ServiceDetailModal({ service, teamData, onClose }) {
-    if(!service) return null;
-    const printRef = useRef(null);
-    const getInstrument = (name) => { const member = (teamData || []).find(m => m && m.nombre === name); return member ? member.instrumento : "Músico"; };
-    const parsed = parseDateParts(service.fecha);
-    
-    const generatePng = async () => { 
-        if (printRef.current) { 
-            try { 
-                const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); 
-                const link = document.createElement('a'); 
-                link.download = `Servicio-${service.fecha || 'generado'}.png`; 
-                link.href = canvas.toDataURL(); 
-                link.click(); 
-            } catch (err) { alert("Error al generar imagen"); } 
-        } 
-    };
-
-    return html`
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm">
-            <div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col">
-                <button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button>
-                <div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl">
-                    <div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl">
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-                        <h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${parsed.day}</h2>
-                        <p className="text-sm uppercase tracking-widest z-10 opacity-90">${parsed.fullMonth}</p>
-                        <div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div>
-                    </div>
-                    <div className="p-6 pt-8 space-y-6">
-                        <div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div>
-                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div>
-                        </div>
-                        <div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div>
-                    </div>
-                </div>
-                <div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div>
-            </div>
-        </div>
-    `;
-}
-
-// --- SERVICE EDITOR (MODIFICADO CON BOTÓN ELIMINAR) ---
-function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
-    const [form, setForm] = useState({ ...service });
-    const [tab, setTab] = useState('REPERTORIO'); 
-    const [showPlanner, setShowPlanner] = useState(false);
-    const [showInstModal, setShowInstModal] = useState(false);
-    const [tempMember, setTempMember] = useState(null);
-
-    const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
-    const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
-    
-    const initiateAddMusico = (name) => {
-        const member = (data.equipo || []).find(m => m && m.nombre === name);
-        if (member) {
-            setTempMember(member);
-            setShowInstModal(true); 
-        } else {
-            addMusicoString(name);
-        }
-    };
-
-    const confirmInstrument = (instrument) => {
-        const entry = `${tempMember.nombre} (${instrument})`;
-        addMusicoString(entry);
-        setShowInstModal(false);
-        setTempMember(null);
-    };
-
-    const addMusicoString = (str) => {
-        if(!form.musicos.includes(str)) setForm({...form, musicos: [...form.musicos, str]});
-    };
-
-    const removeMusico = (n) => { setForm({...form, musicos: form.musicos.filter(m => m !== n)}); };
-
-    const moveItem = (index, dir) => { const newRep = [...form.repertorio]; if (dir === -1 && index > 0) [newRep[index], newRep[index-1]] = [newRep[index-1], newRep[index]]; else if (dir === 1 && index < newRep.length-1) [newRep[index], newRep[index+1]] = [newRep[index+1], newRep[index]]; setForm({ ...form, repertorio: newRep }); };
-    
-    const handlePlannerSuccess = (songs) => {
-        setForm({...form, repertorio: [...(form.repertorio || []), ...songs]});
-    };
-
-    const copySetlist = () => {
-        let t = `*🎵 SETLIST ${form.jornada || ''}*\n${form.fecha || ''}\n👤 ${form.lider || ''}\n\n`;
-        (form.repertorio || []).forEach((s,i)=> t+=`${i+1}. ${s.titulo} (${getBestTone(s.tono, form.lider)})\n`);
-        navigator.clipboard.writeText(t); alert("Copiado al portapapeles");
-    };
-
-    const availableInstruments = tempMember && tempMember.instrumento ? tempMember.instrumento.split(',').map(s => s.trim()).filter(s => s) : [];
-
-    return html`
-        <div className="pb-24 fade-in">
-            ${showPlanner && html`<${RepertoirePlanner} data=${data.canciones} teamData=${data.equipo} onAddSongs=${handlePlannerSuccess} onClose=${() => setShowPlanner(false)} />`}
-
-            ${showInstModal && tempMember && html`
-                <div className="fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-4">
-                    <div className="glass-gold p-6 rounded-2xl w-full max-w-sm">
-                        <h3 className="text-white font-bold mb-4 text-center">¿Qué tocará ${tempMember.nombre}?</h3>
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            ${availableInstruments.map(inst => html`
-                                <button onClick=${() => confirmInstrument(inst)} className="bg-slate-800 hover:bg-yellow-600 hover:text-black text-white p-3 rounded-xl border border-slate-600 font-bold text-sm transition">
-                                    ${inst}
-                                </button>
-                            `)}
-                            <button onClick=${() => confirmInstrument("Voz")} className="bg-slate-800 text-white p-3 rounded-xl border border-slate-600 text-sm">Voz</button>
-                        </div>
-                        <input className="input-dark mb-4" placeholder="Otro instrumento..." onKeyDown=${(e) => e.key === 'Enter' && confirmInstrument(e.target.value)} />
-                        <button onClick=${() => setShowInstModal(false)} className="w-full text-slate-400 py-2">Cancelar</button>
-                    </div>
-                </div>
-            `}
-
-            <div className="sticky top-0 z-40 bg-[#020617]/95 border-b border-white/5 p-2 flex justify-between items-center mb-4 backdrop-blur">
-                <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 overflow-x-auto flex-1 mr-2">${['INFO', 'EQUIPO', 'REPERTORIO', 'SETLIST'].map(t => html`<button key=${t} onClick=${() => setTab(t)} className=${`flex-1 py-2 text-[10px] font-bold rounded-lg transition px-2 ${tab === t ? 'bg-slate-700 text-white shadow' : 'text-slate-500'}`}>${t}</button>`)}</div>
-                <button onClick=${() => onViewDetail(form)} className="bg-blue-600 px-3 py-2 rounded-lg text-white shadow-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-500 transition">
-                    <${Icon.Activity}/> <span className="hidden sm:inline">Generar</span> PNG
-                </button>
-            </div>
-
-            ${tab === 'INFO' && html`
-                <div className="space-y-4">
-                    <input type="date" className=${isAdmin ? "input-dark" : "input-dark bg-slate-900 text-slate-500"} value=${form.fecha} onInput=${e => isAdmin && setForm({...form, fecha: e.target.value})} readOnly=${!isAdmin} />
-                    <div className="grid grid-cols-2 gap-2"><select className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.jornada} onChange=${e => isAdmin && setForm({...form, jornada: e.target.value})} disabled=${!isAdmin}><option>Mañana</option><option>Tarde</option><option>Noche</option><option>Vigilia</option></select><select className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.estado} onChange=${e => isAdmin && setForm({...form, estado: e.target.value})} disabled=${!isAdmin}><option>Borrador</option><option>Oficial</option></select></div>
-                    <input className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.lider} onInput=${e => isAdmin && setForm({...form, lider: e.target.value})} readOnly=${!isAdmin} placeholder="Director (Libre)" />
-                </div>
-            `}
-
-            ${tab === 'EQUIPO' && html`
-                <div className="space-y-6">
-                    <div>
-                        <p className="text-xs text-yellow-500 uppercase font-bold mb-2">Coristas</p>
-                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${(data.equipo || []).filter(e=>e && e.rol && (e.rol.includes('Corista')||e.rol.includes('Líder')))} selectedUsers=${form.coristas} onAdd=${addCorista} onRemove=${removeCorista} placeholder="Añadir Corista..." icon=${html`<${Icon.Mic}/>`}/>` : html`<div className="flex flex-wrap gap-2">${(form.coristas || []).map(c=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-yellow-500/30">${c}</div>`)}</div>`}
-                    </div>
-                    <div>
-                        <p className="text-xs text-blue-500 uppercase font-bold mb-2">Músicos</p>
-                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${(data.equipo || []).filter(e=>e && e.rol && (e.rol.includes('Músico')||e.rol.includes('Líder')))} selectedUsers=${form.musicos} onAdd=${initiateAddMusico} onRemove=${removeMusico} placeholder="Añadir Músico..." icon=${html`<${Icon.Guitar}/>`}/>` : html`<div className="flex flex-wrap gap-2">${(form.musicos || []).map(m=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-blue-500/30">${m}</div>`)}</div>`}
-                    </div>
-                </div>
-            `}
-
-            ${tab === 'REPERTORIO' && html`
-                <div className="space-y-4">
-                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => isAdmin && setShowPlanner(true)} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition group flex flex-col items-center justify-center gap-3"><div className="bg-yellow-600 rounded-full p-3 mb-3 shadow-lg group-hover:scale-110 transition"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg uppercase tracking-widest">AGREGAR CANCIONES</h3></div>`}
-                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        ${(form.repertorio || []).map((r, idx) => html`
-                            <div key=${idx} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center border-l-2 border-green-500 group">
-                                <div className="flex flex-col gap-1 mr-2"><button onClick=${() => moveItem(idx, -1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowUp}/></button><button onClick=${() => moveItem(idx, 1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowDown}/></button></div>
-                                <div className="flex-1 min-w-0"><div className="text-sm font-bold text-white truncate">${r.titulo}</div><div className="text-[10px] text-slate-400 truncate">${r.vocalista}</div></div>
-                                <div className="flex items-center gap-2 ml-2"><input className="bg-slate-900 border border-slate-600 rounded w-10 text-center text-white text-xs py-1" value=${getBestTone(r.tono, form.lider)} onInput=${e => {const newRep = [...form.repertorio]; newRep[idx].tono = e.target.value; setForm({...form, repertorio: newRep});}} /><button onClick=${() => {const newRep = form.repertorio.filter((_, i) => i !== idx); setForm({...form, repertorio: newRep})}} className="text-red-400 p-1"><${Icon.Trash}/></button></div>
-                            </div>
-                        `)}
-                    </div>
-                    ${(form.repertorio||[]).length > 0 && isAdmin && html`<button onClick=${() => setShowPlanner(true)} className="w-full py-3 bg-slate-800 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:text-white hover:border-slate-400 transition">+ Agregar Más Canciones</button>`}
-                </div>
-            `}
-
-            ${tab === 'SETLIST' && html`<div className="space-y-6 text-center pt-4"><button onClick=${copySetlist} className="w-full bg-green-600 py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 btn-active"><${Icon.WhatsApp} /> Copiar Setlist</button></div>`}
-            
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50">
-                ${service.id && isAdmin && html`
-                    <button onClick=${() => onDelete(service.id)} className="px-4 py-3 bg-red-900/40 text-red-500 rounded-xl font-bold shadow-lg border border-red-900/50 hover:bg-red-800/60 transition"><${Icon.Trash}/></button>
-                `}
-                <button onClick=${onCancel} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold text-slate-400">Cancelar</button>
-                <button onClick=${() => onSave(form)} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">Guardar Cambios</button>
-            </div>
-        </div>
-    `;
-}
-
 function TeamManager({ data, isAdmin, refresh }) {
     const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
+    
     const roleOptions = ["Líder", "Corista", "Músico"];
-    const toggleRole = (role) => { if (form.roles.includes(role)) { setForm({ ...form, roles: form.roles.filter(r => r !== role) }); } else { setForm({ ...form, roles: [...form.roles, role] }); } };
-    const save = () => { if (!form.nombre) return alert("Falta el nombre"); if (form.roles.length === 0) return alert("Selecciona al menos un rol"); if (!isEditing && (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase())) return alert("Ya existe."); const payload = { ...form, rol: form.roles.join(', ') }; callGasApi('saveMember', payload, '1234').then(() => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); refresh(); }); };
-    const edit = (m) => { const rolesArray = m.rol ? m.rol.split(', ') : []; setForm({ ...m, roles: rolesArray }); setIsEditing(true); };
+
+    const toggleRole = (role) => {
+        if (form.roles.includes(role)) {
+            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
+        } else {
+            setForm({ ...form, roles: [...form.roles, role] });
+        }
+    };
+
+    const save = () => { 
+        if (!form.nombre) return alert("Falta el nombre");
+        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
+        
+        if (!isEditing) {
+            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
+            if (exists) return alert("Este miembro ya existe. Edita el existente.");
+        }
+
+        const payload = { ...form, rol: form.roles.join(', ') };
+
+        callGasApi('saveMember', payload, '1234').then(() => { 
+            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
+            setIsEditing(false); 
+            refresh(); 
+        }); 
+    };
+    
+    const edit = (m) => { 
+        const rolesArray = m.rol ? m.rol.split(', ') : [];
+        setForm({ ...m, roles: rolesArray }); 
+        setIsEditing(true); 
+    };
+
     const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
     const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
 
@@ -727,6 +528,105 @@ function TeamManager({ data, isAdmin, refresh }) {
                         ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
                     </div>
                 `)}
+            </div>
+        </div>
+    `;
+}
+
+function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory, onDelete }) {
+    const today = new Date().toISOString().split('T')[0];
+    const allServices = (servicios || []).filter(s => s && s.fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    
+    return html`
+        <div className="mb-8">
+            <div className="flex justify-between items-baseline px-1 mb-2">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Servicios Activos</h3>
+                ${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}
+            </div>
+            <div className="space-y-3">
+                ${allServices.map(s => {
+                    const parsed = parseDateParts(s.fecha);
+                    const songsCount = s.repertorio ? s.repertorio.length : 0;
+                    const isPast = s.fecha < today;
+                    
+                    return html`
+                        <div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
+                            <div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div>
+                            
+                            <div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}>
+                                <div className="flex items-center flex-wrap gap-2 mb-1">
+                                    <span className="text-lg font-bold text-white leading-none">${parsed.day}</span>
+                                    <span className="text-xs text-slate-400 uppercase font-bold">${parsed.month}</span>
+                                    ${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Borrador</span>`}
+                                    ${isPast && html`<span className="text-[8px] bg-red-900/80 text-red-300 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Atrasado</span>`}
+                                </div>
+                                <div className="text-sm text-slate-200">
+                                    <span className="text-slate-500 text-xs mr-1">Dirige:</span>
+                                    <${SafeText} content=${s.lider || "Sin asignar"} />
+                                </div>
+                            </div>
+                            
+                            <div className="text-right flex flex-col items-end gap-2">
+                                <div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div>
+                                <div className="flex gap-2 items-center">
+                                    ${isAdmin ? html`<button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>` : (songsCount === 0 ? html`<button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>` : html`<div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>`)}
+                                    
+                                    ${isAdmin && html`
+                                        <button onClick=${(e) => {e.stopPropagation(); onDelete(s.id);}} className="text-red-500 hover:text-white text-[10px] border border-red-500/50 px-2 py-0.5 rounded">
+                                            ✖ Borrar
+                                        </button>
+                                    `}
+
+                                    <button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })}
+            </div>
+        </div>
+    `;
+}
+
+function ServiceDetailModal({ service, teamData, onClose }) {
+    if(!service) return null;
+    const printRef = useRef(null);
+    const getInstrument = (name) => { const member = (teamData || []).find(m => m && m.nombre === name); return member ? member.instrumento : "Músico"; };
+    const parsed = parseDateParts(service.fecha);
+    
+    const generatePng = async () => { 
+        if (printRef.current) { 
+            try { 
+                const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); 
+                const link = document.createElement('a'); 
+                link.download = `Servicio-${service.fecha || 'generado'}.png`; 
+                link.href = canvas.toDataURL(); 
+                link.click(); 
+            } catch (err) { alert("Error al generar imagen"); } 
+        } 
+    };
+
+    return html`
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm">
+            <div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col">
+                <button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button>
+                <div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl">
+                    <div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl">
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
+                        <h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${parsed.day}</h2>
+                        <p className="text-sm uppercase tracking-widest z-10 opacity-90">${parsed.fullMonth}</p>
+                        <div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div>
+                    </div>
+                    <div className="p-6 pt-8 space-y-6">
+                        <div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div>
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div>
+                        </div>
+                        <div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div>
             </div>
         </div>
     `;
@@ -840,7 +740,7 @@ function App() {
             if(showToastCallback) showToastCallback("Acceso Correcto", "success");
         } else { 
             alert("Contraseña incorrecta"); 
-            if(showToastCallback) setToast(null);
+            if(showToastCallback) setToast(null); 
         }
     };
 
@@ -862,7 +762,6 @@ function App() {
         }
     };
 
-    // FIX 2: NUEVA FUNCIÓN PARA ELIMINAR SERVICIOS (Conectada al botón de la papelera)
     const handleDeleteService = async (id) => {
         if (confirm("¿Estás seguro de eliminar este servicio permanentemente?")) {
             if(showToastCallback) showToastCallback("Eliminando...", "loading");
@@ -871,7 +770,6 @@ function App() {
                 const newData = {...data};
                 newData.servicios = (newData.servicios || []).filter(s => s && s.id !== id);
                 setData(newData);
-                setView('HOME');
             }
         }
     };
@@ -897,7 +795,15 @@ function App() {
                     <div className="flex justify-between items-center mb-4">${!isAdmin ? html`<button onClick=${()=>setShowLogin(true)} className="text-xs text-slate-500 flex items-center gap-1 ml-auto"><${Icon.Lock}/> Director</button>` : html`<button onClick=${handleLogout} className="text-xs text-yellow-500 flex items-center gap-1 font-bold ml-auto"><${Icon.Unlock}/> Salir</button>`}</div>
                     <div className="text-center mb-6"><div className="inline-block px-3 py-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 mb-3"><span className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.2em]">ICC Villa Rosario</span></div><h1 className="text-3xl font-serif text-white italic">Panel de <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 font-cinzel font-bold not-italic">Adoración</span></h1></div>
                     
-                    <${UpcomingServicesList} servicios=${data.servicios || []} onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }} onViewDetail=${(s) => setServiceDetail(s)} onNew=${() => { if(isAdmin) { setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); setView('SERVICE_EDITOR'); } else { alert("Solo Admin"); } }} onHistory=${handleGenerateHistory} isAdmin=${isAdmin} />
+                    <${UpcomingServicesList} 
+                        servicios=${data.servicios || []} 
+                        onEdit=${(s) => { setCurrentService(s); setView('SERVICE_EDITOR'); }} 
+                        onViewDetail=${(s) => setServiceDetail(s)} 
+                        onNew=${() => { if(isAdmin) { setCurrentService({ id: null, fecha: new Date().toISOString().split('T')[0], jornada: 'Mañana', estado: 'Borrador', lider: '', coristas: [], musicos: [], repertorio: [] }); setView('SERVICE_EDITOR'); } else { alert("Solo Admin"); } }} 
+                        onHistory=${handleGenerateHistory} 
+                        onDelete=${handleDeleteService}
+                        isAdmin=${isAdmin} 
+                    />
                     
                     <div className="grid grid-cols-2 gap-3 mb-6"><button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active"><${Icon.Calendar} /><span className="font-bold text-xs text-yellow-100">Cronograma</span></button><button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700"><${Icon.History} /><span className="font-bold text-xs text-white">Historial</span></button></div>
                     <div className="space-y-3"><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
