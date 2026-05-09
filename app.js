@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 9.4: Fix ServiceEditor 
+ * Versión 9.4: Fix ID Temporal (Sobrescritura) y Carga de Componentes
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -100,7 +100,6 @@ const Icon = {
     Edit: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
     Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     Download: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
     Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
     Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`
 };
@@ -429,6 +428,190 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
+function TeamManager({ data, isAdmin, refresh }) {
+    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
+    const [isEditing, setIsEditing] = useState(false);
+    
+    const roleOptions = ["Líder", "Corista", "Músico"];
+
+    const toggleRole = (role) => {
+        if (form.roles.includes(role)) {
+            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
+        } else {
+            setForm({ ...form, roles: [...form.roles, role] });
+        }
+    };
+
+    const save = () => { 
+        if (!form.nombre) return alert("Falta el nombre");
+        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
+        
+        if (!isEditing) {
+            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
+            if (exists) return alert("Este miembro ya existe. Edita el existente.");
+        }
+
+        const payload = { ...form, rol: form.roles.join(', ') };
+
+        callGasApi('saveMember', payload, '1234').then(() => { 
+            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
+            setIsEditing(false); 
+            refresh(); 
+        }); 
+    };
+    
+    const edit = (m) => { 
+        const rolesArray = m.rol ? m.rol.split(', ') : [];
+        setForm({ ...m, roles: rolesArray }); 
+        setIsEditing(true); 
+    };
+
+    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
+    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
+
+    return html`
+        <div className="space-y-6">
+            ${isAdmin ? html`
+                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
+                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
+                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
+                    
+                    <div className="flex gap-4 my-2">
+                        ${roleOptions.map(r => html`
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
+                                <span className="text-xs text-slate-300">${r}</span>
+                            </label>
+                        `)}
+                    </div>
+
+                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
+                    
+                    <div className="flex gap-2">
+                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
+                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
+                    </div>
+                </div>
+            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
+            
+            <div className="space-y-2 pb-10">
+                ${(data || []).map(m => html`
+                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                            <div>
+                                <div className="font-bold text-sm text-white">${m.nombre}</div>
+                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
+                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
+                            </div>
+                        </div>
+                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
+                    </div>
+                `)}
+            </div>
+        </div>
+    `;
+}
+
+function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory, onDelete }) {
+    const today = new Date().toISOString().split('T')[0];
+    const allServices = (servicios || []).filter(s => s && s.fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    
+    return html`
+        <div className="mb-8">
+            <div className="flex justify-between items-baseline px-1 mb-2">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Servicios Activos</h3>
+                ${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}
+            </div>
+            <div className="space-y-3">
+                ${allServices.map(s => {
+                    const parsed = parseDateParts(s.fecha);
+                    const songsCount = s.repertorio ? s.repertorio.length : 0;
+                    const isPast = s.fecha < today;
+                    
+                    return html`
+                        <div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
+                            <div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div>
+                            
+                            <div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}>
+                                <div className="flex items-center flex-wrap gap-2 mb-1">
+                                    <span className="text-lg font-bold text-white leading-none">${parsed.day}</span>
+                                    <span className="text-xs text-slate-400 uppercase font-bold">${parsed.month}</span>
+                                    ${s.estado === 'Borrador' ? html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Borrador</span>` : ''}
+                                    ${isPast ? html`<span className="text-[8px] bg-red-900/80 text-red-300 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Atrasado</span>` : ''}
+                                </div>
+                                <div className="text-sm text-slate-200">
+                                    <span className="text-slate-500 text-xs mr-1">Dirige:</span>
+                                    <${SafeText} content=${s.lider || "Sin asignar"} />
+                                </div>
+                            </div>
+                            
+                            <div className="text-right flex flex-col items-end gap-2">
+                                <div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div>
+                                <div className="flex gap-2 items-center">
+                                    ${isAdmin ? html`<button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>` : (songsCount === 0 ? html`<button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>` : html`<div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>`)}
+                                    
+                                    ${isAdmin ? html`
+                                        <button onClick=${(e) => {e.stopPropagation(); onDelete(s.id);}} className="text-red-500 hover:text-white text-[10px] border border-red-500/50 px-2 py-0.5 rounded">
+                                            ✖ Borrar
+                                        </button>
+                                    ` : ''}
+
+                                    <button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })}
+            </div>
+        </div>
+    `;
+}
+
+function ServiceDetailModal({ service, teamData, onClose }) {
+    if(!service) return null;
+    const printRef = useRef(null);
+    const getInstrument = (name) => { const member = (teamData || []).find(m => m && m.nombre === name); return member ? member.instrumento : "Músico"; };
+    const parsed = parseDateParts(service.fecha);
+    
+    const generatePng = async () => { 
+        if (printRef.current) { 
+            try { 
+                const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); 
+                const link = document.createElement('a'); 
+                link.download = `Servicio-${service.fecha || 'generado'}.png`; 
+                link.href = canvas.toDataURL(); 
+                link.click(); 
+            } catch (err) { alert("Error al generar imagen"); } 
+        } 
+    };
+
+    return html`
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm">
+            <div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col">
+                <button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button>
+                <div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl">
+                    <div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl">
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
+                        <h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${parsed.day}</h2>
+                        <p className="text-sm uppercase tracking-widest z-10 opacity-90">${parsed.fullMonth}</p>
+                        <div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div>
+                    </div>
+                    <div className="p-6 pt-8 space-y-6">
+                        <div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div>
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div>
+                        </div>
+                        <div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div>
+            </div>
+        </div>
+    `;
+}
+
 function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
     const [form, setForm] = useState({ ...service });
     const [tab, setTab] = useState('REPERTORIO'); 
@@ -557,192 +740,11 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
             ${tab === 'SETLIST' && html`<div className="space-y-6 text-center pt-4"><button onClick=${copySetlist} className="w-full bg-green-600 py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 btn-active"><${Icon.WhatsApp} /> Copiar Setlist</button></div>`}
             
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50">
+                ${form.id && isAdmin ? html`
+                    <button onClick=${() => onDelete(form.id)} className="px-4 py-3 bg-red-900/40 text-red-500 rounded-xl font-bold shadow-lg border border-red-900/50 hover:bg-red-800/60 transition"><${Icon.Trash}/></button>
+                ` : ''}
                 <button onClick=${onCancel} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold text-slate-400">Cancelar</button>
                 <button onClick=${() => onSave(form)} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">Guardar Cambios</button>
-            </div>
-        </div>
-    `;
-}
-
-function TeamManager({ data, isAdmin, refresh }) {
-    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
-    const [isEditing, setIsEditing] = useState(false);
-    
-    const roleOptions = ["Líder", "Corista", "Músico"];
-
-    const toggleRole = (role) => {
-        if (form.roles.includes(role)) {
-            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
-        } else {
-            setForm({ ...form, roles: [...form.roles, role] });
-        }
-    };
-
-    const save = () => { 
-        if (!form.nombre) return alert("Falta el nombre");
-        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
-        
-        if (!isEditing) {
-            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
-            if (exists) return alert("Este miembro ya existe. Edita el existente.");
-        }
-
-        const payload = { ...form, rol: form.roles.join(', ') };
-
-        callGasApi('saveMember', payload, '1234').then(() => { 
-            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
-            setIsEditing(false); 
-            refresh(); 
-        }); 
-    };
-    
-    const edit = (m) => { 
-        const rolesArray = m.rol ? m.rol.split(', ') : [];
-        setForm({ ...m, roles: rolesArray }); 
-        setIsEditing(true); 
-    };
-
-    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
-    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
-
-    return html`
-        <div className="space-y-6">
-            ${isAdmin ? html`
-                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
-                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
-                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
-                    
-                    <div className="flex gap-4 my-2">
-                        ${roleOptions.map(r => html`
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
-                                <span className="text-xs text-slate-300">${r}</span>
-                            </label>
-                        `)}
-                    </div>
-
-                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
-                    
-                    <div className="flex gap-2">
-                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
-                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
-                    </div>
-                </div>
-            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
-            
-            <div className="space-y-2 pb-10">
-                ${(data || []).map(m => html`
-                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
-                            <div>
-                                <div className="font-bold text-sm text-white">${m.nombre}</div>
-                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
-                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
-                            </div>
-                        </div>
-                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
-                    </div>
-                `)}
-            </div>
-        </div>
-    `;
-}
-
-function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory, onDelete }) {
-    const today = new Date().toISOString().split('T')[0];
-    const allServices = (servicios || []).filter(s => s && s.fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    
-    return html`
-        <div className="mb-8">
-            <div className="flex justify-between items-baseline px-1 mb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Servicios Activos</h3>
-                ${isAdmin && html`<button onClick=${onNew} className="text-xs text-blue-400 font-bold">+ Nuevo</button>`}
-            </div>
-            <div className="space-y-3">
-                ${allServices.map(s => {
-                    const parsed = parseDateParts(s.fecha);
-                    const songsCount = s.repertorio ? s.repertorio.length : 0;
-                    const isPast = s.fecha < today;
-                    
-                    return html`
-                        <div key=${s.id} className="glass p-4 rounded-xl flex justify-between items-center relative overflow-hidden group">
-                            <div className=${`absolute left-0 top-0 bottom-0 w-1 ${s.estado === 'Oficial' ? 'bg-yellow-500' : 'bg-slate-600'}`}></div>
-                            
-                            <div className="pl-3 flex-1 cursor-pointer" onClick=${() => onEdit(s)}>
-                                <div className="flex items-center flex-wrap gap-2 mb-1">
-                                    <span className="text-lg font-bold text-white leading-none">${parsed.day}</span>
-                                    <span className="text-xs text-slate-400 uppercase font-bold">${parsed.month}</span>
-                                    ${s.estado === 'Borrador' && html`<span className="text-[8px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Borrador</span>`}
-                                    ${isPast && html`<span className="text-[8px] bg-red-900/80 text-red-300 px-1.5 py-0.5 rounded uppercase tracking-wider ml-1">Atrasado</span>`}
-                                </div>
-                                <div className="text-sm text-slate-200">
-                                    <span className="text-slate-500 text-xs mr-1">Dirige:</span>
-                                    <${SafeText} content=${s.lider || "Sin asignar"} />
-                                </div>
-                            </div>
-                            
-                            <div className="text-right flex flex-col items-end gap-2">
-                                <div className="text-[10px] font-bold text-yellow-500 uppercase mb-1">${s.jornada}</div>
-                                <div className="flex gap-2 items-center">
-                                    ${isAdmin ? html`<button onClick=${(e) => {e.stopPropagation(); onHistory(s.id);}} className="text-green-500 hover:text-white text-[10px] border border-green-500/50 px-2 py-0.5 rounded">✔ Cerrar</button>` : (songsCount === 0 ? html`<button onClick=${() => onEdit(s)} className="bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-[10px] px-2 py-1 rounded font-bold animate-pulse">⚠ Agregar Canciones</button>` : html`<div className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded inline-block">${songsCount} Canciones</div>`)}
-                                    
-                                    ${isAdmin && html`
-                                        <button onClick=${(e) => {e.stopPropagation(); onDelete(s.id);}} className="text-red-500 hover:text-white text-[10px] border border-red-500/50 px-2 py-0.5 rounded">
-                                            ✖ Borrar
-                                        </button>
-                                    `}
-
-                                    <button onClick=${(e) => {e.stopPropagation(); onViewDetail(s);}} className="text-blue-400 hover:text-white"><${Icon.Activity} /></button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                })}
-            </div>
-        </div>
-    `;
-}
-
-function ServiceDetailModal({ service, teamData, onClose }) {
-    if(!service) return null;
-    const printRef = useRef(null);
-    const getInstrument = (name) => { const member = (teamData || []).find(m => m && m.nombre === name); return member ? member.instrumento : "Músico"; };
-    const parsed = parseDateParts(service.fecha);
-    
-    const generatePng = async () => { 
-        if (printRef.current) { 
-            try { 
-                const canvas = await html2canvas(printRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); 
-                const link = document.createElement('a'); 
-                link.download = `Servicio-${service.fecha || 'generado'}.png`; 
-                link.href = canvas.toDataURL(); 
-                link.click(); 
-            } catch (err) { alert("Error al generar imagen"); } 
-        } 
-    };
-
-    return html`
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 fade-in backdrop-blur-sm">
-            <div className="glass-gold w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl relative flex flex-col">
-                <button onClick=${onClose} className="absolute top-4 right-4 text-white z-10 bg-black/50 rounded-full p-2"><${Icon.Close}/></button>
-                <div ref=${printRef} className="bg-slate-900 pb-6 rounded-t-2xl">
-                    <div className="relative h-32 bg-gradient-to-br from-yellow-700 to-yellow-900 flex flex-col items-center justify-center text-white shrink-0 rounded-t-2xl">
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-                        <h2 className="text-3xl font-serif font-bold z-10 drop-shadow-lg">${parsed.day}</h2>
-                        <p className="text-sm uppercase tracking-widest z-10 opacity-90">${parsed.fullMonth}</p>
-                        <div className="absolute bottom-[-15px] bg-black border border-yellow-500 text-yellow-500 px-4 py-1 rounded-full text-xs font-bold shadow-lg z-20 uppercase tracking-widest">${service.jornada}</div>
-                    </div>
-                    <div className="p-6 pt-8 space-y-6">
-                        <div className="text-center"><p className="text-[10px] uppercase text-slate-500 tracking-widest mb-1">Director de Alabanza</p><h3 className="text-xl font-bold text-white">${service.lider || "Por definir"}</h3></div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-yellow-500 border-b border-slate-700 pb-2"><${Icon.Mic}/> <span className="font-bold text-xs uppercase">Voces</span></div><ul className="space-y-2">${(service.coristas || []).map(c => html`<li className="text-xs text-slate-300">• ${c}</li>`)}</ul></div>
-                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700"><div className="flex items-center gap-2 mb-3 text-blue-500 border-b border-slate-700 pb-2"><${Icon.Guitar}/> <span className="font-bold text-xs uppercase">Banda</span></div><ul className="space-y-2">${(service.musicos || []).map(m => html`<li className="text-xs text-slate-300 flex justify-between"><span>${m}</span><span className="text-[9px] text-slate-500 uppercase">${getInstrument(m)}</span></li>`)}</ul></div>
-                        </div>
-                        <div><div className="flex items-center gap-2 mb-3 text-white"><${Icon.Music}/> <span className="font-bold text-sm uppercase">Repertorio</span></div><div className="space-y-2">${(service.repertorio||[]).map((s, i) => html`<div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition border-b border-white/5"><div className="text-slate-500 text-xs font-mono">0${i+1}</div><div className="flex-1"><div className="text-sm font-bold text-slate-200">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div><div className="text-xs font-bold text-yellow-600 border border-yellow-600/30 px-2 py-1 rounded">${getBestTone(s.tono, service.lider)}</div></div>`)}</div></div>
-                    </div>
-                </div>
-                <div className="p-4 border-t border-slate-800 bg-[#020617]"><button onClick=${generatePng} className="w-full bg-blue-600 p-3 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2"><${Icon.Download} /> Descargar Imagen (PNG)</button></div>
             </div>
         </div>
     `;
@@ -867,7 +869,7 @@ function App() {
             if(showToastCallback) showToastCallback("Acceso Correcto", "success");
         } else { 
             alert("Contraseña incorrecta"); 
-            if(showToastCallback) setToast(null);
+            if(showToastCallback) setToast(null); 
         }
     };
 
@@ -877,15 +879,31 @@ function App() {
         localStorage.removeItem('icc_admin_time');
     };
 
+    // FIX: Ahora asigna un ID temporal si el servicio es nuevo para que no se sobrescriba
     const handleSaveService = async (srv) => {
         if(showToastCallback) showToastCallback("Guardando...", "loading");
-        const res = await callGasApi('saveService', srv, '1234');
+        
+        const isNew = !srv.id;
+        const tempId = "TEMP-" + Date.now();
+        const serviceToSave = { ...srv, id: srv.id || tempId };
+
+        const res = await callGasApi('saveService', serviceToSave, '1234');
         if (res && res.status === 'success') {
             const newData = {...data}; 
-            const idx = (newData.servicios || []).findIndex(s => s && s.id === srv.id);
-            if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
+            
+            if (isNew) {
+                newData.servicios.push(serviceToSave);
+            } else {
+                const idx = (newData.servicios || []).findIndex(s => s && s.id === serviceToSave.id);
+                if(idx >= 0) newData.servicios[idx] = serviceToSave; 
+            }
+            
             setData(newData); 
             setView('HOME'); 
+            if(showToastCallback) showToastCallback("Servicio guardado", "success");
+            
+            // Recarga silenciosa en el fondo para obtener el ID real de la base de datos
+            if(isNew) fetchData();
         }
     };
 
@@ -897,6 +915,8 @@ function App() {
                 const newData = {...data};
                 newData.servicios = (newData.servicios || []).filter(s => s && s.id !== id);
                 setData(newData);
+                setView('HOME');
+                if(showToastCallback) showToastCallback("Servicio eliminado", "success");
             }
         }
     };
