@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 9.2: Botón de Borrado Rápido en Lista Principal (Admin)
+ * Versión 9.3: Fix ReferenceError (Componente Restaurado y Limpio)
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -12,7 +12,7 @@ let showToastCallback = null;
 
 async function callGasApi(action, payload = {}, password = "") {
     try {
-        if(showToastCallback && (action.startsWith('save') || action.startsWith('delete'))) {
+        if(showToastCallback && (action.startsWith('save') || action.startsWith('delete') || action === 'generateHistory')) {
             showToastCallback("Procesando...", "loading");
         }
         
@@ -50,17 +50,6 @@ const SafeText = ({ content }) => content ? String(content) : "";
 const safeJoin = (list) => {
     if (!Array.isArray(list)) return "";
     return list.join(", ");
-};
-
-const formatTonoDisplay = (rawTono) => {
-    try {
-        if (!rawTono) return "";
-        if (typeof rawTono === 'string' && rawTono.trim().startsWith('{')) {
-            const obj = JSON.parse(rawTono);
-            return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join(' | ');
-        }
-        return String(rawTono);
-    } catch(e) { return String(rawTono); }
 };
 
 const getBestTone = (rawTono, currentVocalist) => {
@@ -102,17 +91,7 @@ const Icon = {
     Plus: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
     Trash: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
     Check: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>`,
-    Copy: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-    Fire: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
-    Dove: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12c-4 0-7-4-7-4s4 4 2 9a4 4 0 0 1-4 4c-3 0-5-3-5-6s-2-4-5-5L2 9a2 2 0 0 1 0-3l3-3a6 6 0 0 1 6 0l4 4a5 5 0 0 1 5 5 2 2 0 0 1 2 0z"/></svg>`,
-    Hand: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`, 
-    Ring: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>`, 
-    Gift: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.9 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>`,
     Info: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
-    List: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
-    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
-    Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
-    Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`,
     Activity: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
     Wrench: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
     History: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`,
@@ -121,7 +100,9 @@ const Icon = {
     Edit: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
     Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     Download: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-    BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
+    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
+    Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+    Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`
 };
 
 // ================= 4. COMPONENTES BASE =================
@@ -129,9 +110,7 @@ const Icon = {
 const SplashScreen = () => {
     return html`
         <div className="bg-[#020617] h-screen w-screen flex flex-col items-center justify-center fixed top-0 left-0 z-[100] fade-in text-center px-6">
-            <div className="mb-6 animate-pulse text-yellow-500">
-                <${Icon.Music} style=${{width: 60, height: 60}} />
-            </div>
+            <div className="mb-6 animate-pulse text-yellow-500"><${Icon.Music} style=${{width: 60, height: 60}} /></div>
             <h1 className="text-3xl font-serif text-white mb-2 tracking-widest font-bold">GRUPO DE ALABANZA</h1>
             <h2 className="text-xl font-cinzel text-yellow-500 tracking-[0.2em] mb-12">ICC VILLA ROSARIO</h2>
             <div className="absolute bottom-10 left-0 right-0 text-center opacity-50">
@@ -172,64 +151,18 @@ function Manual({ onClose }) {
     `;
 }
 
-function ActivityModal({ onClose }) {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        callGasApi('getRecentActivity').then(res => {
-            if(res.status === 'success') setLogs(res.data || []);
-            setLoading(false);
-        });
-    }, []);
-
-    return html`
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in">
-            <div className="glass-gold p-6 rounded-2xl w-full max-w-lg h-[80vh] flex flex-col">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-serif text-white flex items-center gap-2"><${Icon.Activity} /> Bitácora</h2>
-                    <button onClick=${onClose} className="text-slate-400 p-2">✕</button>
-                </div>
-                <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">
-                    ${loading ? html`<div className="text-center text-yellow-500 mt-10">Cargando...</div>` :
-                    (logs || []).map((log, i) => html`
-                        <div key=${i} className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs">
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-                                <span className="font-mono text-yellow-500"><${SafeText} content=${log.fecha} /> <${SafeText} content=${log.hora} /></span>
-                                <span className="font-bold"><${SafeText} content=${log.accion} /></span>
-                            </div>
-                            <div className="text-slate-300"><${SafeText} content=${log.detalle} /></div>
-                        </div>
-                    `)}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeholder, icon }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
 
     const handleSearch = (e) => {
-        const val = e.target.value;
-        setQuery(val);
+        const val = e.target.value; setQuery(val);
         if (val.length > 0) {
-            const filtered = (allUsers || []).filter(u => 
-                u && u.nombre && u.nombre.toLowerCase().includes(val.toLowerCase()) && 
-                !(selectedUsers || []).some(sel => sel && sel.includes(u.nombre))
-            );
+            const filtered = (allUsers || []).filter(u => u && u.nombre && u.nombre.toLowerCase().includes(val.toLowerCase()) && !(selectedUsers || []).some(sel => sel && sel.includes(u.nombre)));
             setResults(filtered);
-        } else {
-            setResults([]);
-        }
+        } else { setResults([]); }
     };
-
-    const handleSelect = (user) => {
-        if(user && user.nombre) onAdd(user.nombre); 
-        setQuery("");
-        setResults([]);
-    };
+    const handleSelect = (user) => { if(user && user.nombre) onAdd(user.nombre); setQuery(""); setResults([]); };
 
     return html`
         <div className="mb-4">
@@ -237,24 +170,8 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
                 <input className="input-dark pl-10" placeholder=${placeholder} value=${query} onInput=${handleSearch} />
                 <div className="absolute left-3 top-3 text-slate-500">${icon}</div>
             </div>
-            ${results.length > 0 && html`
-                <div className="bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-40 overflow-y-auto absolute z-10 w-full shadow-xl">
-                    ${results.map(u => html`
-                        <div onClick=${() => handleSelect(u)} className="p-2 hover:bg-slate-700 cursor-pointer text-sm text-white border-b border-slate-700 last:border-0 flex justify-between">
-                            <span>${u.nombre}</span>
-                            <span className="text-[10px] text-slate-400 italic">${u.instrumento || u.rol}</span>
-                        </div>
-                    `)}
-                </div>
-            `}
-            <div className="mt-2 flex flex-wrap gap-2">
-                ${(selectedUsers || []).map(u => html`
-                    <div className="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs text-slate-300 flex items-center gap-2">
-                        ${u}
-                        <button onClick=${() => onRemove(u)} className="text-red-400 hover:text-red-300">✕</button>
-                    </div>
-                `)}
-            </div>
+            ${results.length > 0 && html`<div className="bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-40 overflow-y-auto absolute z-10 w-full shadow-xl">${results.map(u => html`<div onClick=${() => handleSelect(u)} className="p-2 hover:bg-slate-700 cursor-pointer text-sm text-white border-b border-slate-700 last:border-0 flex justify-between"><span>${u.nombre}</span><span className="text-[10px] text-slate-400 italic">${u.instrumento || u.rol}</span></div>`)}</div>`}
+            <div className="mt-2 flex flex-wrap gap-2">${(selectedUsers || []).map(u => html`<div className="bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-xs text-slate-300 flex items-center gap-2">${u}<button onClick=${() => onRemove(u)} className="text-red-400 hover:text-red-300">✕</button></div>`)}</div>
         </div>
     `;
 }
@@ -293,17 +210,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
 
     const handleSelectExisting = (id, song) => {
         if(!song) return;
-        const newRows = rows.map(r => r.id === id ? { 
-            ...r, 
-            titulo: song.titulo || "", 
-            vocalista: song.vocalista || "", 
-            tipo: song.tipo || song.ritmo || "", 
-            estilo: song.estilo || "",
-            tono: getBestTone(song.tono, "General"), 
-            link: song.link || "", 
-            isNew: false, 
-            dbId: song.id 
-        } : r);
+        const newRows = rows.map(r => r.id === id ? { ...r, titulo: song.titulo || "", vocalista: song.vocalista || "", tipo: song.tipo || song.ritmo || "", estilo: song.estilo || "", tono: getBestTone(song.tono, "General"), link: song.link || "", isNew: false, dbId: song.id } : r);
         setRows(newRows);
         const newSugg = { ...suggestions }; delete newSugg[id]; setSuggestions(newSugg);
     };
@@ -318,17 +225,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
             handleSelectExisting(lastRow.id, song);
         } else {
             const newId = Date.now() + Math.random();
-            setRows([...rows, { 
-                id: newId, 
-                titulo: song.titulo || "", 
-                vocalista: song.vocalista || "", 
-                tipo: song.tipo || song.ritmo || "", 
-                estilo: song.estilo || "",
-                tono: getBestTone(song.tono, "General"), 
-                link: song.link || "", 
-                isNew: false, 
-                dbId: song.id 
-            }]);
+            setRows([...rows, { id: newId, titulo: song.titulo || "", vocalista: song.vocalista || "", tipo: song.tipo || song.ritmo || "", estilo: song.estilo || "", tono: getBestTone(song.tono, "General"), link: song.link || "", isNew: false, dbId: song.id }]);
         }
     };
 
@@ -336,43 +233,18 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         const validRows = rows.filter(r => r.titulo && r.titulo.trim() !== "");
         if (validRows.length === 0) return alert("Agrega al menos una canción");
         
-        const toCreate = validRows.filter(r => r.isNew).map(r => ({ 
-            titulo: r.titulo.toUpperCase(), 
-            vocalista: r.vocalista || "", 
-            tipo: r.tipo || "", 
-            estilo: r.estilo || "", 
-            tono: r.tono || "", 
-            link: r.link || "", 
-            letra: '' 
-        }));
-        
+        const toCreate = validRows.filter(r => r.isNew).map(r => ({ titulo: r.titulo.toUpperCase(), vocalista: r.vocalista || "", tipo: r.tipo || "", estilo: r.estilo || "", tono: r.tono || "", link: r.link || "", letra: '' }));
         if (toCreate.length > 0) callGasApi('saveSongsBatch', toCreate);
 
-        const mappedSongs = validRows.map(r => ({
-            id: r.dbId || "TEMP-" + Date.now() + Math.random(),
-            titulo: r.titulo.toUpperCase(),
-            vocalista: r.vocalista || "",
-            ritmo: r.tipo || "", 
-            estilo: r.estilo || "",
-            tono: r.tono || "",
-            link: r.link || ""
-        }));
-        
+        const mappedSongs = validRows.map(r => ({ id: r.dbId || "TEMP-" + Date.now() + Math.random(), titulo: r.titulo.toUpperCase(), vocalista: r.vocalista || "", ritmo: r.tipo || "", estilo: r.estilo || "", tono: r.tono || "", link: r.link || "" }));
         onAddSongs(mappedSongs);
         onClose();
     };
     
     return html`
         <div className="fixed inset-0 bg-black/95 z-[60] flex flex-col p-0 fade-in">
-            <datalist id="vocalists-list">
-                ${uniqueVocalists.map(v => html`<option value=${v} />`)}
-            </datalist>
-
-            <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617] shrink-0">
-                <h2 className="text-lg font-serif text-white">Planificador</h2>
-                <button onClick=${onClose} className="text-slate-400">Cerrar</button>
-            </div>
-
+            <datalist id="vocalists-list">${uniqueVocalists.map(v => html`<option value=${v} />`)}</datalist>
+            <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617] shrink-0"><h2 className="text-lg font-serif text-white">Planificador</h2><button onClick=${onClose} className="text-slate-400">Cerrar</button></div>
             <div className="px-4 py-4 bg-[#020617] border-b border-slate-800 shrink-0 max-h-[40vh] overflow-y-auto">
                 <h3 className="text-[10px] uppercase text-blue-500 font-bold mb-2">Tu Selección / Nueva Canción</h3>
                 <div className="space-y-3">
@@ -381,11 +253,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
                             <div className="absolute top-2 right-2 text-[10px] font-bold ${r.isNew ? 'text-green-500' : 'text-blue-500'}">${r.isNew ? 'NUEVA' : 'EXISTENTE'}</div>
                             <div className="relative mb-2 mt-2">
                                 <input className="input-dark font-bold text-white text-sm" placeholder="Escribe título..." value=${r.titulo} onInput=${(e) => handleSearch(r.id, e.target.value)} />
-                                ${suggestions[r.id] && suggestions[r.id].length > 0 && html`
-                                    <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg z-50 max-h-40 overflow-y-auto mt-1 shadow-2xl">
-                                        ${suggestions[r.id].map(s => html`<div className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-0" onClick=${() => handleSelectExisting(r.id, s)}><div className="font-bold text-sm text-white">${s.titulo}</div><div className="text-xs text-slate-400">${s.vocalista}</div></div>`)}
-                                    </div>
-                                `}
+                                ${suggestions[r.id] && suggestions[r.id].length > 0 && html`<div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg z-50 max-h-40 overflow-y-auto mt-1 shadow-2xl">${suggestions[r.id].map(s => html`<div className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-0" onClick=${() => handleSelectExisting(r.id, s)}><div className="font-bold text-sm text-white">${s.titulo}</div><div className="text-xs text-slate-400">${s.vocalista}</div></div>`)}</div>`}
                             </div>
                             <div className="grid grid-cols-2 gap-2 mb-2">
                                 <input className="input-dark text-xs" list="vocalists-list" placeholder="Vocalista (Auto)" value=${r.vocalista} onInput=${(e) => updateRow(r.id, 'vocalista', e.target.value)} />
@@ -402,133 +270,22 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
                     <button onClick=${addRow} className="w-full py-2 border border-dashed border-slate-600 rounded-lg text-slate-400 text-xs hover:bg-slate-800">+ Fila</button>
                 </div>
             </div>
-
             <div className="shrink-0 bg-slate-900/50 border-b border-slate-800">
-                <div className="flex overflow-x-auto p-2 gap-2">
-                    ${tipos.map(t => html`
-                        <button onClick=${() => { setActiveTab(t); setSuggestions({}); }} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>
-                            ${t}
-                        </button>
-                    `)}
-                </div>
-                <div className="px-4 py-2">
-                    <select className="input-dark text-xs" value=${filterVocalist} onChange=${e => setFilterVocalist(e.target.value)}>
-                        <option value="TODOS">Ver todos los cantantes</option>
-                        ${uniqueVocalists.map(v => html`<option value=${v}>${v}</option>`)}
-                    </select>
-                </div>
+                <div className="flex overflow-x-auto p-2 gap-2">${tipos.map(t => html`<button onClick=${() => { setActiveTab(t); setSuggestions({}); }} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>${t}</button>`)}</div>
+                <div className="px-4 py-2"><select className="input-dark text-xs" value=${filterVocalist} onChange=${e => setFilterVocalist(e.target.value)}><option value="TODOS">Ver todos los cantantes</option>${uniqueVocalists.map(v => html`<option value=${v}>${v}</option>`)}</select></div>
             </div>
-
             <div className="flex-1 overflow-y-auto pb-20 px-4 pt-2">
-                <h3 className="text-[10px] uppercase text-yellow-500 font-bold mb-2 sticky top-0 bg-[#020617] py-1 z-10">
-                    Biblioteca: ${activeTab} (${tabSongs.length})
-                </h3>
+                <h3 className="text-[10px] uppercase text-yellow-500 font-bold mb-2 sticky top-0 bg-[#020617] py-1 z-10">Biblioteca: ${activeTab} (${tabSongs.length})</h3>
                 <div className="space-y-1">
                     ${tabSongs.map(s => html`
                         <div onClick=${() => handleSelectFromList(s)} className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-800 cursor-pointer group transition">
-                            <div className="flex items-center gap-3">
-                                <div className="text-yellow-500 text-xs"><${Icon.Music}/></div>
-                                <div>
-                                    <div className="text-xs font-bold text-white group-hover:text-yellow-400">${s.titulo}</div>
-                                    <div className="text-[10px] text-slate-500">${s.vocalista}</div>
-                                </div>
-                            </div>
-                            <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800">
-                                ${s.estilo || 'Gral'}
-                            </div>
+                            <div className="flex items-center gap-3"><div className="text-yellow-500 text-xs"><${Icon.Music}/></div><div><div className="text-xs font-bold text-white group-hover:text-yellow-400">${s.titulo}</div><div className="text-[10px] text-slate-500">${s.vocalista}</div></div></div>
+                            <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800">${s.estilo || 'Gral'}</div>
                         </div>
                     `)}
                 </div>
             </div>
-
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-slate-800 z-50">
-                <button onClick=${handleSave} className="w-full bg-blue-600 py-3 rounded-xl font-bold text-white shadow-lg">Confirmar Selección</button>
-            </div>
-        </div>
-    `;
-}
-
-function TeamManager({ data, isAdmin, refresh }) {
-    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
-    const [isEditing, setIsEditing] = useState(false);
-    
-    const roleOptions = ["Líder", "Corista", "Músico"];
-
-    const toggleRole = (role) => {
-        if (form.roles.includes(role)) {
-            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
-        } else {
-            setForm({ ...form, roles: [...form.roles, role] });
-        }
-    };
-
-    const save = () => { 
-        if (!form.nombre) return alert("Falta el nombre");
-        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
-        
-        if (!isEditing) {
-            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
-            if (exists) return alert("Este miembro ya existe. Edita el existente.");
-        }
-
-        const payload = { ...form, rol: form.roles.join(', ') };
-
-        callGasApi('saveMember', payload, '1234').then(() => { 
-            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
-            setIsEditing(false); 
-            refresh(); 
-        }); 
-    };
-    
-    const edit = (m) => { 
-        const rolesArray = m.rol ? m.rol.split(', ') : [];
-        setForm({ ...m, roles: rolesArray }); 
-        setIsEditing(true); 
-    };
-
-    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
-    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
-
-    return html`
-        <div className="space-y-6">
-            ${isAdmin ? html`
-                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
-                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
-                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
-                    
-                    <div className="flex gap-4 my-2">
-                        ${roleOptions.map(r => html`
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
-                                <span className="text-xs text-slate-300">${r}</span>
-                            </label>
-                        `)}
-                    </div>
-
-                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
-                    
-                    <div className="flex gap-2">
-                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
-                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
-                    </div>
-                </div>
-            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
-            
-            <div className="space-y-2 pb-10">
-                ${(data || []).map(m => html`
-                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
-                            <div>
-                                <div className="font-bold text-sm text-white">${m.nombre}</div>
-                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
-                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
-                            </div>
-                        </div>
-                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
-                    </div>
-                `)}
-            </div>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-slate-800 z-50"><button onClick=${handleSave} className="w-full bg-blue-600 py-3 rounded-xl font-bold text-white shadow-lg">Confirmar Selección</button></div>
         </div>
     `;
 }
@@ -632,6 +389,217 @@ function ServiceDetailModal({ service, teamData, onClose }) {
     `;
 }
 
+function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onViewDetail }) {
+    const [form, setForm] = useState({ ...service });
+    const [tab, setTab] = useState('REPERTORIO'); 
+    const [showPlanner, setShowPlanner] = useState(false);
+    const [showInstModal, setShowInstModal] = useState(false);
+    const [tempMember, setTempMember] = useState(null);
+
+    const addCorista = (n) => { if(!form.coristas.includes(n)) setForm({...form, coristas: [...form.coristas, n]}); };
+    const removeCorista = (n) => { setForm({...form, coristas: form.coristas.filter(c => c !== n)}); };
+    
+    const initiateAddMusico = (name) => {
+        const member = (data.equipo || []).find(m => m && m.nombre === name);
+        if (member) {
+            setTempMember(member);
+            setShowInstModal(true); 
+        } else {
+            addMusicoString(name);
+        }
+    };
+
+    const confirmInstrument = (instrument) => {
+        const entry = `${tempMember.nombre} (${instrument})`;
+        addMusicoString(entry);
+        setShowInstModal(false);
+        setTempMember(null);
+    };
+
+    const addMusicoString = (str) => {
+        if(!form.musicos.includes(str)) setForm({...form, musicos: [...form.musicos, str]});
+    };
+
+    const removeMusico = (n) => { setForm({...form, musicos: form.musicos.filter(m => m !== n)}); };
+
+    const moveItem = (index, dir) => { const newRep = [...form.repertorio]; if (dir === -1 && index > 0) [newRep[index], newRep[index-1]] = [newRep[index-1], newRep[index]]; else if (dir === 1 && index < newRep.length-1) [newRep[index], newRep[index+1]] = [newRep[index+1], newRep[index]]; setForm({ ...form, repertorio: newRep }); };
+    
+    const handlePlannerSuccess = (songs) => {
+        setForm({...form, repertorio: [...(form.repertorio || []), ...songs]});
+    };
+
+    const copySetlist = () => {
+        let t = `*🎵 SETLIST ${form.jornada || ''}*\n${form.fecha || ''}\n👤 ${form.lider || ''}\n\n`;
+        (form.repertorio || []).forEach((s,i)=> t+=`${i+1}. ${s.titulo} (${getBestTone(s.tono, form.lider)})\n`);
+        navigator.clipboard.writeText(t); alert("Copiado al portapapeles");
+    };
+
+    const availableInstruments = tempMember && tempMember.instrumento ? tempMember.instrumento.split(',').map(s => s.trim()).filter(s => s) : [];
+
+    return html`
+        <div className="pb-24 fade-in">
+            ${showPlanner && html`<${RepertoirePlanner} data=${data.canciones} teamData=${data.equipo} onAddSongs=${handlePlannerSuccess} onClose=${() => setShowPlanner(false)} />`}
+
+            ${showInstModal && tempMember && html`
+                <div className="fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-4">
+                    <div className="glass-gold p-6 rounded-2xl w-full max-w-sm">
+                        <h3 className="text-white font-bold mb-4 text-center">¿Qué tocará ${tempMember.nombre}?</h3>
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            ${availableInstruments.map(inst => html`
+                                <button onClick=${() => confirmInstrument(inst)} className="bg-slate-800 hover:bg-yellow-600 hover:text-black text-white p-3 rounded-xl border border-slate-600 font-bold text-sm transition">
+                                    ${inst}
+                                </button>
+                            `)}
+                            <button onClick=${() => confirmInstrument("Voz")} className="bg-slate-800 text-white p-3 rounded-xl border border-slate-600 text-sm">Voz</button>
+                        </div>
+                        <input className="input-dark mb-4" placeholder="Otro instrumento..." onKeyDown=${(e) => e.key === 'Enter' && confirmInstrument(e.target.value)} />
+                        <button onClick=${() => setShowInstModal(false)} className="w-full text-slate-400 py-2">Cancelar</button>
+                    </div>
+                </div>
+            `}
+
+            <div className="sticky top-0 z-40 bg-[#020617]/95 border-b border-white/5 p-2 flex justify-between items-center mb-4 backdrop-blur">
+                <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 overflow-x-auto flex-1 mr-2">${['INFO', 'EQUIPO', 'REPERTORIO', 'SETLIST'].map(t => html`<button key=${t} onClick=${() => setTab(t)} className=${`flex-1 py-2 text-[10px] font-bold rounded-lg transition px-2 ${tab === t ? 'bg-slate-700 text-white shadow' : 'text-slate-500'}`}>${t}</button>`)}</div>
+                <button onClick=${() => onViewDetail(form)} className="bg-blue-600 px-3 py-2 rounded-lg text-white shadow-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-500 transition">
+                    <${Icon.Activity}/> <span className="hidden sm:inline">Generar</span> PNG
+                </button>
+            </div>
+
+            ${tab === 'INFO' && html`
+                <div className="space-y-4">
+                    <input type="date" className=${isAdmin ? "input-dark" : "input-dark bg-slate-900 text-slate-500"} value=${form.fecha} onInput=${e => isAdmin && setForm({...form, fecha: e.target.value})} readOnly=${!isAdmin} />
+                    <div className="grid grid-cols-2 gap-2"><select className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.jornada} onChange=${e => isAdmin && setForm({...form, jornada: e.target.value})} disabled=${!isAdmin}><option>Mañana</option><option>Tarde</option><option>Noche</option><option>Vigilia</option></select><select className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.estado} onChange=${e => isAdmin && setForm({...form, estado: e.target.value})} disabled=${!isAdmin}><option>Borrador</option><option>Oficial</option></select></div>
+                    <input className=${isAdmin?"input-dark":"input-dark bg-slate-900 text-slate-500"} value=${form.lider} onInput=${e => isAdmin && setForm({...form, lider: e.target.value})} readOnly=${!isAdmin} placeholder="Director (Libre)" />
+                </div>
+            `}
+
+            ${tab === 'EQUIPO' && html`
+                <div className="space-y-6">
+                    <div>
+                        <p className="text-xs text-yellow-500 uppercase font-bold mb-2">Coristas</p>
+                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${(data.equipo || []).filter(e=>e && e.rol && (e.rol.includes('Corista')||e.rol.includes('Líder')))} selectedUsers=${form.coristas} onAdd=${addCorista} onRemove=${removeCorista} placeholder="Añadir Corista..." icon=${html`<${Icon.Mic}/>`}/>` : html`<div className="flex flex-wrap gap-2">${(form.coristas || []).map(c=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-yellow-500/30">${c}</div>`)}</div>`}
+                    </div>
+                    <div>
+                        <p className="text-xs text-blue-500 uppercase font-bold mb-2">Músicos</p>
+                        ${isAdmin ? html`<${SearchableUserSelect} allUsers=${(data.equipo || []).filter(e=>e && e.rol && (e.rol.includes('Músico')||e.rol.includes('Líder')))} selectedUsers=${form.musicos} onAdd=${initiateAddMusico} onRemove=${removeMusico} placeholder="Añadir Músico..." icon=${html`<${Icon.Guitar}/>`}/>` : html`<div className="flex flex-wrap gap-2">${(form.musicos || []).map(m=>html`<div className="bg-slate-800 px-3 py-1 rounded-full text-xs text-slate-300 border border-blue-500/30">${m}</div>`)}</div>`}
+                    </div>
+                </div>
+            `}
+
+            ${tab === 'REPERTORIO' && html`
+                <div className="space-y-4">
+                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => isAdmin && setShowPlanner(true)} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition group flex flex-col items-center justify-center gap-3"><div className="bg-yellow-600 rounded-full p-3 mb-3 shadow-lg group-hover:scale-110 transition"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg uppercase tracking-widest">AGREGAR CANCIONES</h3></div>`}
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        ${(form.repertorio || []).map((r, idx) => html`
+                            <div key=${idx} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center border-l-2 border-green-500 group">
+                                <div className="flex flex-col gap-1 mr-2"><button onClick=${() => moveItem(idx, -1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowUp}/></button><button onClick=${() => moveItem(idx, 1)} className="text-slate-500 hover:text-white text-[10px]"><${Icon.ArrowDown}/></button></div>
+                                <div className="flex-1 min-w-0"><div className="text-sm font-bold text-white truncate">${r.titulo}</div><div className="text-[10px] text-slate-400 truncate">${r.vocalista}</div></div>
+                                <div className="flex items-center gap-2 ml-2"><input className="bg-slate-900 border border-slate-600 rounded w-10 text-center text-white text-xs py-1" value=${getBestTone(r.tono, form.lider)} onInput=${e => {const newRep = [...form.repertorio]; newRep[idx].tono = e.target.value; setForm({...form, repertorio: newRep});}} /><button onClick=${() => {const newRep = form.repertorio.filter((_, i) => i !== idx); setForm({...form, repertorio: newRep})}} className="text-red-400 p-1"><${Icon.Trash}/></button></div>
+                            </div>
+                        `)}
+                    </div>
+                    ${(form.repertorio||[]).length > 0 && isAdmin && html`<button onClick=${() => setShowPlanner(true)} className="w-full py-3 bg-slate-800 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:text-white hover:border-slate-400 transition">+ Agregar Más Canciones</button>`}
+                </div>
+            `}
+
+            ${tab === 'SETLIST' && html`<div className="space-y-6 text-center pt-4"><button onClick=${copySetlist} className="w-full bg-green-600 py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 btn-active"><${Icon.WhatsApp} /> Copiar Setlist</button></div>`}
+            
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#020617]/95 border-t border-slate-800 flex gap-3 backdrop-blur z-50">
+                ${service.id && isAdmin && html`
+                    <button onClick=${() => onDelete(service.id)} className="px-4 py-3 bg-red-900/40 text-red-500 rounded-xl font-bold shadow-lg border border-red-900/50 hover:bg-red-800/60 transition"><${Icon.Trash}/></button>
+                `}
+                <button onClick=${onCancel} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold text-slate-400">Cancelar</button>
+                <button onClick=${() => onSave(form)} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold shadow-lg text-white">Guardar Cambios</button>
+            </div>
+        </div>
+    `;
+}
+
+function TeamManager({ data, isAdmin, refresh }) {
+    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
+    const [isEditing, setIsEditing] = useState(false);
+    
+    const roleOptions = ["Líder", "Corista", "Músico"];
+
+    const toggleRole = (role) => {
+        if (form.roles.includes(role)) {
+            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
+        } else {
+            setForm({ ...form, roles: [...form.roles, role] });
+        }
+    };
+
+    const save = () => { 
+        if (!form.nombre) return alert("Falta el nombre");
+        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
+        
+        if (!isEditing) {
+            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
+            if (exists) return alert("Este miembro ya existe. Edita el existente.");
+        }
+
+        const payload = { ...form, rol: form.roles.join(', ') };
+
+        callGasApi('saveMember', payload, '1234').then(() => { 
+            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
+            setIsEditing(false); 
+            refresh(); 
+        }); 
+    };
+    
+    const edit = (m) => { 
+        const rolesArray = m.rol ? m.rol.split(', ') : [];
+        setForm({ ...m, roles: rolesArray }); 
+        setIsEditing(true); 
+    };
+
+    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
+    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
+
+    return html`
+        <div className="space-y-6">
+            ${isAdmin ? html`
+                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
+                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
+                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
+                    
+                    <div className="flex gap-4 my-2">
+                        ${roleOptions.map(r => html`
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
+                                <span className="text-xs text-slate-300">${r}</span>
+                            </label>
+                        `)}
+                    </div>
+
+                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
+                    
+                    <div className="flex gap-2">
+                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
+                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
+                    </div>
+                </div>
+            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
+            
+            <div className="space-y-2 pb-10">
+                ${(data || []).map(m => html`
+                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                            <div>
+                                <div className="font-bold text-sm text-white">${m.nombre}</div>
+                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
+                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
+                            </div>
+                        </div>
+                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
+                    </div>
+                `)}
+            </div>
+        </div>
+    `;
+}
+
 function MonthPoster({ servicios }) {
     const [offset, setOffset] = useState(0);
     const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() + offset);
@@ -639,7 +607,18 @@ function MonthPoster({ servicios }) {
     const year = date.getFullYear();
     const posterRef = useRef(null);
     const monthServices = (servicios || []).filter(s => { if(!s || !s.fecha) return false; const d = new Date(s.fecha + "T00:00:00"); return d.getMonth() === date.getMonth() && d.getFullYear() === year; }).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    const generatePng = async () => { if (posterRef.current) { try { const canvas = await html2canvas(posterRef.current, { backgroundColor: "#0f172a", scale: 2 }); const link = document.createElement('a'); link.download = `Cronograma-${monthName}.png`; link.href = canvas.toDataURL(); link.click(); } catch (err) { alert("Error"); } } };
+    
+    const generatePng = async () => { 
+        if (posterRef.current) { 
+            try { 
+                const canvas = await html2canvas(posterRef.current, { backgroundColor: "#0f172a", scale: 2 }); 
+                const link = document.createElement('a'); 
+                link.download = `Cronograma-${monthName}.png`; 
+                link.href = canvas.toDataURL(); 
+                link.click(); 
+            } catch (err) { alert("Error"); } 
+        } 
+    };
 
     return html`
         <div className="fade-in pb-10">
@@ -759,6 +738,7 @@ function App() {
             if(idx >= 0) newData.servicios[idx] = srv; else newData.servicios.push(srv);
             setData(newData); 
             setView('HOME'); 
+            if(showToastCallback) showToastCallback("Servicio guardado", "success");
         }
     };
 
@@ -770,6 +750,8 @@ function App() {
                 const newData = {...data};
                 newData.servicios = (newData.servicios || []).filter(s => s && s.id !== id);
                 setData(newData);
+                setView('HOME');
+                if(showToastCallback) showToastCallback("Servicio eliminado", "success");
             }
         }
     };
