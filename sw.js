@@ -1,71 +1,64 @@
-const CACHE_NAME = 'icc-music-cache-v1';
+const CACHE_NAME = 'icc-music-cache-v2'; // El cambio a v2 obliga al celular a borrar la memoria vieja
+
 const urlsToCache = [
   './',
   './index.html',
-  './app.js?v=8.1',
+  './app.js',
   './style.css',
   './icon-192.png',
   './icon-512.png'
 ];
 
+// INSTALACIÓN Y REEMPLAZO FORZADO
 self.addEventListener('install', event => {
+  self.skipWaiting(); // Fuerza a que el nuevo Service Worker se instale de inmediato
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Archivos en caché instalados');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
+// ACTIVACIÓN Y LIMPIEZA DE BASURA
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            // Borra cualquier caché anterior que esté causando pantalla blanca
+            return caches.delete(cacheName); 
+          }
+        })
+      );
+    }).then(() => self.clients.claim()) // Toma el control de la página instantáneamente
+  );
+});
+
+// ESTRATEGIA: NETWORK-FIRST (Primero Internet, luego Memoria)
 self.addEventListener('fetch', event => {
-  // Estrategia Network-Only para la API de Google Apps Script (Datos siempre frescos)
+  // Las peticiones a Google Apps Script siempre van a internet
   if (event.request.url.includes('script.google.com')) {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  // Estrategia Cache-First para la UI y recursos estáticos
+  // Para la App: Intenta descargar lo más nuevo de GitHub. 
+  // Si no hay internet, entonces saca la copia de seguridad de la memoria.
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        if (response) {
-          return response; // Retorna del caché local si existe
-        }
-        
-        // Si no está en caché, lo busca en la red
-        return fetch(event.request).then(
-          function(networkResponse) {
-            // No cachear respuestas inválidas o peticiones que no sean GET
-            if(!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' || event.request.method !== 'GET') {
-              return networkResponse;
-            }
-
-            // Clonar la respuesta para guardarla en caché y luego retornarla
-            var responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME)
-              .then(function(cache) {
-                cache.put(event.request, responseToCache);
-              });
-
-            return networkResponse;
-          }
-        );
+        // Clonar y guardar la versión fresca en el caché
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseClone);
+        });
+        return response;
       })
-  );
-});
-
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName); // Borra cachés antiguos si se actualiza la versión
-          }
-        })
-      );
-    })
+      .catch(() => {
+        // Solo si falla (no hay internet), usa el caché
+        return caches.match(event.request);
+      })
   );
 });
