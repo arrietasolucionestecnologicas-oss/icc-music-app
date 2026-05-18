@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 9.4: Fix ID Temporal (Sobrescritura) y Carga de Componentes
+ * Versión 9.5: Fix ServiceEditor (Restaurado y Permisos Perfil Normal aplicados)
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -428,91 +428,6 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     `;
 }
 
-function TeamManager({ data, isAdmin, refresh }) {
-    const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
-    const [isEditing, setIsEditing] = useState(false);
-    
-    const roleOptions = ["Líder", "Corista", "Músico"];
-
-    const toggleRole = (role) => {
-        if (form.roles.includes(role)) {
-            setForm({ ...form, roles: form.roles.filter(r => r !== role) });
-        } else {
-            setForm({ ...form, roles: [...form.roles, role] });
-        }
-    };
-
-    const save = () => { 
-        if (!form.nombre) return alert("Falta el nombre");
-        if (form.roles.length === 0) return alert("Selecciona al menos un rol");
-        
-        if (!isEditing) {
-            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
-            if (exists) return alert("Este miembro ya existe. Edita el existente.");
-        }
-
-        const payload = { ...form, rol: form.roles.join(', ') };
-
-        callGasApi('saveMember', payload, '1234').then(() => { 
-            setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
-            setIsEditing(false); 
-            refresh(); 
-        }); 
-    };
-    
-    const edit = (m) => { 
-        const rolesArray = m.rol ? m.rol.split(', ') : [];
-        setForm({ ...m, roles: rolesArray }); 
-        setIsEditing(true); 
-    };
-
-    const cancelEdit = () => { setForm({ id: '', nombre: '', roles: [], instrumento: '' }); setIsEditing(false); };
-    const remove = (id) => { if (confirm('¿Eliminar?')) callGasApi('deleteMember', {id}, '1234').then(refresh); };
-
-    return html`
-        <div className="space-y-6">
-            ${isAdmin ? html`
-                <div className="glass p-4 rounded-xl space-y-3 border-t-2 border-teal-500">
-                    <h3 className="text-xs font-bold text-teal-400 uppercase">${isEditing ? 'Editar Integrante' : 'Nuevo Integrante'}</h3>
-                    <input className="input-dark" placeholder="Nombre Completo" value=${form.nombre} onInput=${e => setForm({...form, nombre: e.target.value})} />
-                    
-                    <div className="flex gap-4 my-2">
-                        ${roleOptions.map(r => html`
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked=${form.roles.includes(r)} onChange=${() => toggleRole(r)} className="accent-teal-500" />
-                                <span className="text-xs text-slate-300">${r}</span>
-                            </label>
-                        `)}
-                    </div>
-
-                    <input className="input-dark" placeholder="Instrumentos (sep. por comas)" value=${form.instrumento} onInput=${e => setForm({...form, instrumento: e.target.value})} />
-                    
-                    <div className="flex gap-2">
-                        ${isEditing && html`<button onClick=${cancelEdit} className="flex-1 py-3 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>`}
-                        <button onClick=${save} className="flex-1 bg-teal-600 py-3 rounded-lg font-bold text-sm shadow-lg btn-active">${isEditing ? 'Actualizar' : 'Guardar'}</button>
-                    </div>
-                </div>
-            ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
-            
-            <div className="space-y-2 pb-10">
-                ${(data || []).map(m => html`
-                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
-                            <div>
-                                <div className="font-bold text-sm text-white">${m.nombre}</div>
-                                <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
-                                <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
-                            </div>
-                        </div>
-                        ${isAdmin && html`<div className="flex gap-2"><button onClick=${() => edit(m)} className="text-slate-400 p-2"><${Icon.Edit}/></button><button onClick=${() => remove(m.id)} className="text-red-400 p-2"><${Icon.Trash}/></button></div>`}
-                    </div>
-                `)}
-            </div>
-        </div>
-    `;
-}
-
 function UpcomingServicesList({ servicios, isAdmin, onEdit, onViewDetail, onNew, onHistory, onDelete }) {
     const today = new Date().toISOString().split('T')[0];
     const allServices = (servicios || []).filter(s => s && s.fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
@@ -723,7 +638,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 
             ${tab === 'REPERTORIO' && html`
                 <div className="space-y-4">
-                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => isAdmin && setShowPlanner(true)} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition group flex flex-col items-center justify-center gap-3"><div className="bg-yellow-600 rounded-full p-3 mb-3 shadow-lg group-hover:scale-110 transition"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg uppercase tracking-widest">AGREGAR CANCIONES</h3></div>`}
+                    ${(form.repertorio||[]).length === 0 && html`<div onClick=${() => setShowPlanner(true)} className="bg-slate-900 border-2 border-dashed border-yellow-500/50 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-800 transition group flex flex-col items-center justify-center gap-3"><div className="bg-yellow-600 rounded-full p-3 mb-3 shadow-lg group-hover:scale-110 transition"><${Icon.Plus}/></div><h3 className="text-yellow-500 font-bold text-lg uppercase tracking-widest">AGREGAR CANCIONES</h3></div>`}
                     <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                         ${(form.repertorio || []).map((r, idx) => html`
                             <div key=${idx} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center border-l-2 border-green-500 group">
@@ -733,7 +648,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
                             </div>
                         `)}
                     </div>
-                    ${(form.repertorio||[]).length > 0 && isAdmin && html`<button onClick=${() => setShowPlanner(true)} className="w-full py-3 bg-slate-800 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:text-white hover:border-slate-400 transition">+ Agregar Más Canciones</button>`}
+                    ${(form.repertorio||[]).length > 0 && html`<button onClick=${() => setShowPlanner(true)} className="w-full py-3 bg-slate-800 border border-dashed border-slate-600 rounded-xl text-slate-400 text-sm hover:text-white hover:border-slate-400 transition">+ Agregar Más Canciones</button>`}
                 </div>
             `}
 
@@ -879,7 +794,6 @@ function App() {
         localStorage.removeItem('icc_admin_time');
     };
 
-    // FIX: Ahora asigna un ID temporal si el servicio es nuevo para que no se sobrescriba
     const handleSaveService = async (srv) => {
         if(showToastCallback) showToastCallback("Guardando...", "loading");
         
@@ -902,7 +816,6 @@ function App() {
             setView('HOME'); 
             if(showToastCallback) showToastCallback("Servicio guardado", "success");
             
-            // Recarga silenciosa en el fondo para obtener el ID real de la base de datos
             if(isNew) fetchData();
         }
     };
