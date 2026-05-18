@@ -802,7 +802,22 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     const [formEq, setFormEq] = useState({ id: '', nombre: '', ubicacion: '', frecuencia: 6, obs: '' });
     const reportRef = useRef(null);
     
-    const getStatusColor = (d) => { if(!d) return 'text-slate-500'; const diff = (new Date(d) - new Date())/(1000*60*60*24); return diff<0 ? 'text-red-500 font-bold' : diff<30 ? 'text-yellow-500' : 'text-green-500'; };
+    // Función estricta para leer fechas de la DB evitando saltos de zona horaria
+    const parseDateLocal = (ds) => {
+        if(!ds) return null;
+        const parts = String(ds).split('T')[0].split('-');
+        if(parts.length!==3) return new Date(ds);
+        return new Date(parts[0], parts[1]-1, parts[2], 0,0,0);
+    };
+
+    const getStatusColor = (d) => { 
+        if(!d) return 'text-slate-500'; 
+        const prox = parseDateLocal(d);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const diff = Math.ceil((prox - today)/(1000*60*60*24));
+        return diff < 0 ? 'text-red-500 font-bold' : diff <= 30 ? 'text-yellow-500' : 'text-green-500'; 
+    };
+
     const handleSaveMant = () => { if(!selectedEq || !formMant.descripcion) return alert("Datos?"); callGasApi('saveMaintenance', { ...formMant, idEquipo: selectedEq.id }, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
     const handleSaveEq = () => { if(!formEq.nombre) return alert("Nombre?"); callGasApi('saveEquipment', formEq, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
     const handleDeleteEq = (id) => { if(confirm("¿Eliminar?")) callGasApi('deleteEquipment', {id}, '1234').then(refresh); };
@@ -812,7 +827,7 @@ function MaintenanceView({ data, isAdmin, refresh }) {
             try { 
                 const canvas = await html2canvas(reportRef.current, { backgroundColor: "#0f172a", scale: 2, useCORS: true }); 
                 const link = document.createElement('a'); 
-                link.download = `Informe_Junta_Equipos_${new Date().toISOString().split('T')[0]}.png`; 
+                link.download = `Informe_Equipos_${new Date().toISOString().split('T')[0]}.png`; 
                 link.href = canvas.toDataURL(); 
                 link.click(); 
             } catch (err) { alert("Error al generar imagen"); } 
@@ -834,7 +849,7 @@ function MaintenanceView({ data, isAdmin, refresh }) {
                 <div className="fade-in pb-10">
                     <div className="flex justify-between items-center glass p-2 rounded-xl mb-4">
                         <button onClick=${() => setViewMode('LIST')} className="p-2"><${Icon.ArrowLeft}/></button>
-                        <span className="font-bold uppercase text-sm">Informe Directiva</span>
+                        <span className="font-bold uppercase text-sm">Reporte de Estado</span>
                         <div className="w-8"></div>
                     </div>
                     <button onClick=${generatePng} className="w-full bg-blue-600 mb-4 p-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg btn-active">
@@ -842,7 +857,6 @@ function MaintenanceView({ data, isAdmin, refresh }) {
                     </button>
                     <div ref=${reportRef} className="glass-gold p-6 rounded-xl relative overflow-hidden bg-slate-900">
                         <div className="text-center border-b border-yellow-500/30 pb-4 mb-4">
-                            <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-[0.3em] mb-1">Junta Directiva</p>
                             <h2 className="text-xl font-serif font-bold text-white uppercase">Estado de Equipos</h2>
                             <p className="text-[10px] text-slate-400 mt-1">Generado: ${new Date().toLocaleDateString('es-CO')}</p>
                         </div>
@@ -852,35 +866,37 @@ function MaintenanceView({ data, isAdmin, refresh }) {
                                 const today = new Date();
                                 today.setHours(0,0,0,0);
                                 let estadoStr = "SIN MANTENIMIENTO PREVIO";
-                                let color = "text-slate-400";
+                                let color = "text-slate-400 border-slate-600";
                                 
                                 if(eq.proximoMant) {
-                                    const prox = new Date(eq.proximoMant);
-                                    prox.setHours(0,0,0,0);
+                                    const prox = parseDateLocal(eq.proximoMant);
                                     const diff = Math.ceil((prox - today)/(1000*60*60*24));
                                     
                                     if(diff < 0) { 
-                                        estadoStr = `¡ALERTA! Venció hace ${Math.abs(diff)} días`; 
-                                        color = "text-red-500 font-bold"; 
+                                        estadoStr = `¡VENCIDO HACE ${Math.abs(diff)} DÍAS!`; 
+                                        color = "text-red-400 bg-red-950 border-red-800 font-bold"; 
                                     } else if(diff === 0) { 
-                                        estadoStr = "VENCE HOY"; 
-                                        color = "text-yellow-500 font-bold"; 
+                                        estadoStr = "¡VENCE HOY!"; 
+                                        color = "text-yellow-400 bg-yellow-950 border-yellow-800 font-bold"; 
                                     } else if(diff <= 30) { 
                                         estadoStr = `Alerta: Vence en ${diff} días`; 
-                                        color = "text-yellow-500"; 
+                                        color = "text-yellow-500 border-yellow-800"; 
                                     } else { 
                                         estadoStr = `Vigente (${diff} días restantes)`; 
-                                        color = "text-green-500"; 
+                                        color = "text-green-500 border-green-800"; 
                                     }
                                 }
                                 
                                 return html`
-                                    <div key=${eq.id} className="border-l-2 border-slate-700 pl-3 pb-2 border-b border-slate-800/50 last:border-b-0">
+                                    <div key=${eq.id} className="border-l-2 border-slate-700 pl-3 pb-3 border-b border-slate-800/50 last:border-b-0">
                                         <div className="font-bold text-white text-sm uppercase">${eq.nombre}</div>
                                         <div className="text-[10px] text-slate-400 mt-1">📍 ${eq.ubicacion} | 🗓️ Ciclo: Cada ${eq.frecuencia} meses</div>
-                                        <div className="text-[10px] text-slate-400">Último registro: ${eq.ultimoMant || 'Ninguno'}</div>
-                                        <div className=${`text-xs mt-1 bg-slate-950 inline-block px-2 py-1 rounded border border-slate-800 ${color}`}>
-                                            ${estadoStr}
+                                        ${eq.obs && html`<div className="text-[10px] text-slate-300 mt-2 mb-1 bg-slate-800/50 p-2 rounded">📝 <strong className="text-purple-400">Obs:</strong> ${eq.obs}</div>`}
+                                        <div className="flex justify-between items-center mt-2">
+                                            <div className="text-[9px] text-slate-500">Último: ${eq.ultimoMant || 'Ninguno'}</div>
+                                            <div className=${`text-[10px] px-2 py-1 rounded border ${color}`}>
+                                                ${estadoStr}
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -896,8 +912,9 @@ function MaintenanceView({ data, isAdmin, refresh }) {
             ${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción detallada..." value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}
             
             ${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3">
-                <input className="input-dark" placeholder="Nombre del Equipo (Ej. Consola M32)" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} />
+                <input className="input-dark" placeholder="Nombre del Equipo (Ej. Consola M32, Congas)" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} />
                 <input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} />
+                <textarea className="input-dark min-h-[80px]" placeholder="Observaciones / Ítems de Mant. (Ej: Cambio de cueros, limpieza de faders...)" value=${formEq.obs} onInput=${e => setFormEq({...formEq, obs: e.target.value})}></textarea>
                 
                 <div className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
                     <span className="text-xs text-slate-400 font-bold">Ciclo de Mantenimiento (Meses):</span>
@@ -907,11 +924,10 @@ function MaintenanceView({ data, isAdmin, refresh }) {
                 <div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div>
             </div></div>`}
             
-            ${viewMode === 'LIST' && html`<div className="space-y-3">${(data || []).map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Ciclo: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo Vencimiento:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}
+            ${viewMode === 'LIST' && html`<div className="space-y-3">${(data || []).map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Ciclo: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo Vencimiento:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${eq.obs && html`<div className="text-[10px] text-slate-400 italic border-l-2 border-purple-500/50 pl-2 mt-1">📝 ${eq.obs}</div>`}${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}
         </div>
     `;
 }
-
 // ================= 7. APP PRINCIPAL =================
 
 function App() {
