@@ -1,4 +1,4 @@
-const CACHE_NAME = 'icc-music-cache-v2'; // El cambio a v2 obliga al celular a borrar la memoria vieja
+const CACHE_NAME = 'icc-music-cache-v3'; // El cambio de versión obliga al celular a borrar la memoria vieja
 
 const urlsToCache = [
   './',
@@ -27,7 +27,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            // Borra cualquier caché anterior que esté causando pantalla blanca
+            // Borra cualquier caché anterior que esté causando pantalla blanca o problemas de CORS
             return caches.delete(cacheName); 
           }
         })
@@ -38,10 +38,10 @@ self.addEventListener('activate', event => {
 
 // ESTRATEGIA: NETWORK-FIRST (Primero Internet, luego Memoria)
 self.addEventListener('fetch', event => {
-  // Las peticiones a Google Apps Script siempre van a internet
+  // FIX CORS: Ignorar completamente las peticiones a Google Apps Script.
+  // Esto obliga al navegador a manejar los redireccionamientos (HTTP 302) y CORS de forma nativa sin que el Service Worker interfiera.
   if (event.request.url.includes('script.google.com')) {
-    event.respondWith(fetch(event.request));
-    return;
+    return; 
   }
 
   // Para la App: Intenta descargar lo más nuevo de GitHub. 
