@@ -1,7 +1,7 @@
 /**
  * APP.JS - MINISTERIO DE ALABANZA
  * Integridad Absoluta: Código Completo
- * Versión 9.6: Fix TeamManager (Componente Restaurado)
+ * Versión 9.7: Trazabilidad Logística de Equipos (Costo y Proveedor)
  */
 
 // ================= 1. CONFIGURACIÓN Y API =================
@@ -91,17 +91,7 @@ const Icon = {
     Plus: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
     Trash: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
     Check: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>`,
-    Copy: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-    Fire: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
-    Dove: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12c-4 0-7-4-7-4s4 4 2 9a4 4 0 0 1-4 4c-3 0-5-3-5-6s-2-4-5-5L2 9a2 2 0 0 1 0-3l3-3a6 6 0 0 1 6 0l4 4a5 5 0 0 1 5 5 2 2 0 0 1 2 0z"/></svg>`,
-    Hand: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`, 
-    Ring: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>`, 
-    Gift: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.9 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>`,
     Info: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
-    List: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
-    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
-    Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
-    Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`,
     Activity: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
     Wrench: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
     History: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`,
@@ -110,8 +100,11 @@ const Icon = {
     Edit: () => html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
     Close: () => html`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     Download: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-    BigPlus: () => html`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
+    WhatsApp: () => html`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
+    Lock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+    Unlock: () => html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`
 };
+
 // ================= 4. COMPONENTES BASE =================
 
 const SplashScreen = () => {
@@ -573,6 +566,7 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
         </div>
     `;
 }
+
 function TeamManager({ data, isAdmin, refresh }) {
     const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
@@ -798,11 +792,12 @@ function HistoryView({ data }) {
 function MaintenanceView({ data, isAdmin, refresh }) {
     const [viewMode, setViewMode] = useState('LIST'); 
     const [selectedEq, setSelectedEq] = useState(null);
-    const [formMant, setFormMant] = useState({ idEquipo: '', fecha: new Date().toISOString().split('T')[0], responsable: '', costo: 0, descripcion: '' });
+    const [formMant, setFormMant] = useState({ idEquipo: '', fecha: new Date().toISOString().split('T')[0], responsable: '', costo: '', lugar: '', descripcion: '' });
     const [formEq, setFormEq] = useState({ id: '', nombre: '', ubicacion: '', frecuencia: 6, obs: '' });
     const reportRef = useRef(null);
     
-    // Función estricta para leer fechas de la DB evitando saltos de zona horaria
+    const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
     const parseDateLocal = (ds) => {
         if(!ds) return null;
         const parts = String(ds).split('T')[0].split('-');
@@ -811,14 +806,34 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     };
 
     const getStatusColor = (d) => { 
-        if(!d) return 'text-slate-500'; 
+        if(!d) return 'text-slate-500 border-slate-600'; 
         const prox = parseDateLocal(d);
         const today = new Date(); today.setHours(0,0,0,0);
         const diff = Math.ceil((prox - today)/(1000*60*60*24));
-        return diff < 0 ? 'text-red-500 font-bold' : diff <= 30 ? 'text-yellow-500' : 'text-green-500'; 
+        if(diff < 0) return 'text-red-400 bg-red-950 border-red-800 font-bold';
+        if(diff === 0) return 'text-yellow-400 bg-yellow-950 border-yellow-800 font-bold';
+        if(diff <= 30) return 'text-yellow-500 border-yellow-800';
+        return 'text-green-500 border-green-800'; 
     };
 
-    const handleSaveMant = () => { if(!selectedEq || !formMant.descripcion) return alert("Datos?"); callGasApi('saveMaintenance', { ...formMant, idEquipo: selectedEq.id }, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
+    const getStatusText = (d) => {
+        if(!d) return 'SIN MANTENIMIENTO PREVIO';
+        const prox = parseDateLocal(d);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const diff = Math.ceil((prox - today)/(1000*60*60*24));
+        if(diff < 0) return `¡VENCIDO HACE ${Math.abs(diff)} DÍAS!`;
+        if(diff === 0) return `¡VENCE HOY!`;
+        if(diff <= 30) return `Alerta: Vence en ${diff} días`;
+        return `Vigente (${diff} días restantes)`;
+    };
+
+    const handleSaveMant = () => { 
+        if(!selectedEq || !formMant.descripcion) return alert("Por favor incluye una descripción de los elementos cambiados o intervenidos."); 
+        callGasApi('saveMaintenance', { ...formMant, idEquipo: selectedEq.id, costo: Number(formMant.costo) || 0 }, '1234').then(() => { 
+            setViewMode('LIST'); refresh(); 
+        }); 
+    };
+    
     const handleSaveEq = () => { if(!formEq.nombre) return alert("Nombre?"); callGasApi('saveEquipment', formEq, '1234').then(() => { setViewMode('LIST'); refresh(); }); };
     const handleDeleteEq = (id) => { if(confirm("¿Eliminar?")) callGasApi('deleteEquipment', {id}, '1234').then(refresh); };
     
@@ -863,39 +878,19 @@ function MaintenanceView({ data, isAdmin, refresh }) {
                         <div className="space-y-4">
                             ${(data || []).length === 0 ? html`<div className="text-center text-slate-500 text-xs">No hay equipos registrados.</div>` : 
                             (data || []).map(eq => {
-                                const today = new Date();
-                                today.setHours(0,0,0,0);
-                                let estadoStr = "SIN MANTENIMIENTO PREVIO";
-                                let color = "text-slate-400 border-slate-600";
-                                
-                                if(eq.proximoMant) {
-                                    const prox = parseDateLocal(eq.proximoMant);
-                                    const diff = Math.ceil((prox - today)/(1000*60*60*24));
-                                    
-                                    if(diff < 0) { 
-                                        estadoStr = `¡VENCIDO HACE ${Math.abs(diff)} DÍAS!`; 
-                                        color = "text-red-400 bg-red-950 border-red-800 font-bold"; 
-                                    } else if(diff === 0) { 
-                                        estadoStr = "¡VENCE HOY!"; 
-                                        color = "text-yellow-400 bg-yellow-950 border-yellow-800 font-bold"; 
-                                    } else if(diff <= 30) { 
-                                        estadoStr = `Alerta: Vence en ${diff} días`; 
-                                        color = "text-yellow-500 border-yellow-800"; 
-                                    } else { 
-                                        estadoStr = `Vigente (${diff} días restantes)`; 
-                                        color = "text-green-500 border-green-800"; 
-                                    }
-                                }
-                                
                                 return html`
                                     <div key=${eq.id} className="border-l-2 border-slate-700 pl-3 pb-3 border-b border-slate-800/50 last:border-b-0">
                                         <div className="font-bold text-white text-sm uppercase">${eq.nombre}</div>
                                         <div className="text-[10px] text-slate-400 mt-1">📍 ${eq.ubicacion} | 🗓️ Ciclo: Cada ${eq.frecuencia} meses</div>
                                         ${eq.obs && html`<div className="text-[10px] text-slate-300 mt-2 mb-1 bg-slate-800/50 p-2 rounded">📝 <strong className="text-purple-400">Obs:</strong> ${eq.obs}</div>`}
-                                        <div className="flex justify-between items-center mt-2">
-                                            <div className="text-[9px] text-slate-500">Último: ${eq.ultimoMant || 'Ninguno'}</div>
-                                            <div className=${`text-[10px] px-2 py-1 rounded border ${color}`}>
-                                                ${estadoStr}
+                                        <div className="flex justify-between items-end mt-2">
+                                            <div className="text-[9px] text-slate-500">
+                                                Último: ${eq.ultimoMant || 'Ninguno'}
+                                                ${eq.costoUltimo ? html`<br/><span className="text-green-500 font-bold">${fmt.format(eq.costoUltimo)}</span>` : ''} 
+                                                ${eq.lugarUltimo ? html`<span className="text-slate-400"> en ${eq.lugarUltimo}</span>` : ''}
+                                            </div>
+                                            <div className=${`text-[10px] px-2 py-1 rounded border ${getStatusColor(eq.proximoMant)}`}>
+                                                ${getStatusText(eq.proximoMant)}
                                             </div>
                                         </div>
                                     </div>
@@ -909,25 +904,84 @@ function MaintenanceView({ data, isAdmin, refresh }) {
                 </div>
             `}
 
-            ${viewMode === 'LOG_MANT' && selectedEq && html`<div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in"><h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3><div className="space-y-3"><input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} /><input className="input-dark" placeholder="Responsable" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} /><textarea className="input-dark" placeholder="Descripción detallada..." value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea><div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button></div></div></div>`}
-            
-            ${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`<div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in"><h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3><div className="space-y-3">
-                <input className="input-dark" placeholder="Nombre del Equipo (Ej. Consola M32, Congas)" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} />
-                <input className="input-dark" placeholder="Ubicación" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} />
-                <textarea className="input-dark min-h-[80px]" placeholder="Observaciones / Ítems de Mant. (Ej: Cambio de cueros, limpieza de faders...)" value=${formEq.obs} onInput=${e => setFormEq({...formEq, obs: e.target.value})}></textarea>
-                
-                <div className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
-                    <span className="text-xs text-slate-400 font-bold">Ciclo de Mantenimiento (Meses):</span>
-                    <input type="number" min="1" max="60" className="input-dark w-20 text-center m-0" value=${formEq.frecuencia} onInput=${e => setFormEq({...formEq, frecuencia: Number(e.target.value)})} />
+            ${viewMode === 'LOG_MANT' && selectedEq && html`
+                <div className="glass-gold p-4 rounded-xl border-t-2 border-yellow-500 fade-in">
+                    <h3 className="text-white font-bold mb-3">Registrar Mant: ${selectedEq.nombre}</h3>
+                    <div className="space-y-3">
+                        <input type="date" className="input-dark" value=${formMant.fecha} onInput=${e => setFormMant({...formMant, fecha: e.target.value})} />
+                        <input className="input-dark" placeholder="Responsable de la supervisión" value=${formMant.responsable} onInput=${e => setFormMant({...formMant, responsable: e.target.value})} />
+                        <div className="grid grid-cols-2 gap-2">
+                            <input type="number" className="input-dark" placeholder="Costo total ($)" value=${formMant.costo} onInput=${e => setFormMant({...formMant, costo: e.target.value})} />
+                            <input className="input-dark" placeholder="Lugar / Proveedor" value=${formMant.lugar} onInput=${e => setFormMant({...formMant, lugar: e.target.value})} />
+                        </div>
+                        <textarea className="input-dark" placeholder="Descripción detallada de la acción (Ej: Cambio de cueros, compra de baquetas, limpieza de faders)..." value=${formMant.descripcion} onInput=${e => setFormMant({...formMant, descripcion: e.target.value})}></textarea>
+                        <div className="flex gap-2">
+                            <button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>
+                            <button onClick=${handleSaveMant} className="flex-1 py-2 bg-yellow-600 rounded-lg text-black font-bold">Guardar</button>
+                        </div>
+                    </div>
                 </div>
-
-                <div className="flex gap-2"><button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button><button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button></div>
-            </div></div>`}
+            `}
             
-            ${viewMode === 'LIST' && html`<div className="space-y-3">${(data || []).map(eq => html`<div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800"><div className="flex justify-between items-start"><div><div className="font-bold text-white text-sm">${eq.nombre}</div><div className="text-[10px] text-slate-400">${eq.ubicacion} • Ciclo: ${eq.frecuencia}m</div></div><div className="text-right"><div className="text-[10px] text-slate-500">Próximo Vencimiento:</div><div className=${`text-xs ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div></div></div>${eq.obs && html`<div className="text-[10px] text-slate-400 italic border-l-2 border-purple-500/50 pl-2 mt-1">📝 ${eq.obs}</div>`}${isAdmin && html`<div className="flex gap-2 pt-2 border-t border-slate-800"><button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button><button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button><button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button></div>`}</div>`)}</div>`}
+            ${(viewMode === 'NEW_EQ' || viewMode === 'EDIT_EQ') && html`
+                <div className="glass p-4 rounded-xl border-t-2 border-purple-500 fade-in">
+                    <h3 className="text-white font-bold mb-3">${viewMode === 'NEW_EQ' ? 'Nuevo' : 'Editar'} Equipo</h3>
+                    <div className="space-y-3">
+                        <input className="input-dark" placeholder="Nombre del Equipo (Ej. Consola M32, Congas)" value=${formEq.nombre} onInput=${e => setFormEq({...formEq, nombre: e.target.value})} />
+                        <input className="input-dark" placeholder="Ubicación (Ej. Tarima, Cuarto de Racks)" value=${formEq.ubicacion} onInput=${e => setFormEq({...formEq, ubicacion: e.target.value})} />
+                        <textarea className="input-dark min-h-[80px]" placeholder="Observaciones Generales / Ítems de Mant. (Ej: Requiere revisión de conectores, parches cambiados en enero...)" value=${formEq.obs} onInput=${e => setFormEq({...formEq, obs: e.target.value})}></textarea>
+                        
+                        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
+                            <span className="text-xs text-slate-400 font-bold">Ciclo de Mantenimiento (Meses):</span>
+                            <input type="number" min="1" max="60" className="input-dark w-20 text-center m-0" value=${formEq.frecuencia} onInput=${e => setFormEq({...formEq, frecuencia: Number(e.target.value)})} />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button onClick=${() => setViewMode('LIST')} className="flex-1 py-2 bg-slate-800 rounded-lg text-slate-400">Cancelar</button>
+                            <button onClick=${handleSaveEq} className="flex-1 py-2 bg-purple-600 rounded-lg text-white font-bold">Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            `}
+            
+            ${viewMode === 'LIST' && html`
+                <div className="space-y-3">
+                    ${(data || []).map(eq => html`
+                        <div key=${eq.id} className="glass p-3 rounded-xl flex flex-col gap-2 border border-slate-800">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-bold text-white text-sm">${eq.nombre}</div>
+                                    <div className="text-[10px] text-slate-400">${eq.ubicacion} • Ciclo: ${eq.frecuencia}m</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[10px] text-slate-500">Vencimiento:</div>
+                                    <div className=${`text-xs px-1 rounded inline-block ${getStatusColor(eq.proximoMant)}`}>${eq.proximoMant || 'N/A'}</div>
+                                </div>
+                            </div>
+                            
+                            <div className="text-[9px] text-slate-500 bg-slate-900/50 p-1.5 rounded">
+                                Último: ${eq.ultimoMant || 'Ninguno'} 
+                                ${eq.costoUltimo ? html`<strong className="text-green-500 ml-1"> ${fmt.format(eq.costoUltimo)}</strong>` : ''} 
+                                ${eq.lugarUltimo ? html`<span className="text-slate-400 ml-1">en ${eq.lugarUltimo}</span>` : ''}
+                            </div>
+
+                            ${eq.obs && html`<div className="text-[10px] text-slate-400 italic border-l-2 border-purple-500/50 pl-2 mt-1 whitespace-pre-line">📝 ${eq.obs}</div>`}
+                            
+                            ${isAdmin && html`
+                                <div className="flex gap-2 pt-2 border-t border-slate-800">
+                                    <button onClick=${() => { setSelectedEq(eq); setViewMode('LOG_MANT'); }} className="flex-1 bg-slate-800 text-purple-400 text-[10px] py-1 rounded">Mant.</button>
+                                    <button onClick=${() => {setFormEq(eq); setViewMode('EDIT_EQ');}} className="px-3 bg-slate-800 text-slate-400 text-[10px] py-1 rounded"><${Icon.Edit}/></button>
+                                    <button onClick=${() => handleDeleteEq(eq.id)} className="px-3 bg-slate-800 text-red-400 text-[10px] py-1 rounded"><${Icon.Trash}/></button>
+                                </div>
+                            `}
+                        </div>
+                    `)}
+                </div>
+            `}
         </div>
     `;
 }
+
 // ================= 7. APP PRINCIPAL =================
 
 function App() {
