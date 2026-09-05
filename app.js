@@ -66,6 +66,15 @@ const getBestTone = (rawTono, currentVocalist) => {
     } catch(e) { return ""; }
 };
 
+const normalizeKey = (t) => (t || '').trim().toUpperCase().replace(/\s+/g, ' ');
+
+const resolveTeamName = (name, teamData) => {
+    const n = (name || '').trim();
+    if (!n) return n;
+    const match = (teamData || []).find(m => m && m.nombre && normalizeKey(m.nombre) === normalizeKey(n));
+    return match ? match.nombre : n;
+};
+
 const parseDateParts = (dateString) => {
     if(!dateString) return { day: "??", month: "???", fullMonth: "???" };
     try {
@@ -258,7 +267,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         if(!s) return false;
         const matchType = activeTab === 'TODOS' || s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta');
         if (!matchType) return false;
-        if (filterVocalist !== 'TODOS' && !(s.vocalista && s.vocalista.includes(filterVocalist))) return false;
+        if (filterVocalist !== 'TODOS' && !(s.vocalista && s.vocalista.toLowerCase().includes(filterVocalist.toLowerCase()))) return false;
         if (librarySearch.trim()) {
             const q = librarySearch.trim().toLowerCase();
             if (!(s.titulo || '').toLowerCase().includes(q) && !(s.vocalista || '').toLowerCase().includes(q)) return false;
@@ -324,13 +333,15 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         const validRows = rows.filter(r => r.titulo && r.titulo.trim() !== "");
         if (validRows.length === 0) return alert("Agrega al menos una canción");
 
-        // Evita duplicar una canción que ya existe con otra combinación de mayúsculas/minúsculas.
+        // Evita duplicar una canción que ya existe con otra combinación de mayúsculas/minúsculas,
+        // y normaliza el vocalista contra el nombre real registrado en Equipo.
         const resolvedRows = validRows.map(r => {
+            const vocalista = resolveTeamName(r.vocalista, teamData);
             if (r.isNew) {
                 const match = findExistingByTitle(r.titulo);
-                if (match) return { ...r, isNew: false, dbId: match.id, titulo: match.titulo };
+                if (match) return { ...r, isNew: false, dbId: match.id, titulo: match.titulo, vocalista };
             }
-            return r;
+            return { ...r, vocalista };
         });
 
         const toCreate = resolvedRows.filter(r => r.isNew).map(r => ({
@@ -589,8 +600,15 @@ function ServiceEditor({ service, data, isAdmin, onSave, onDelete, onCancel, onV
 function TeamManager({ data, isAdmin, refresh }) {
     const [form, setForm] = useState({ id: '', nombre: '', roles: [], instrumento: '' });
     const [isEditing, setIsEditing] = useState(false);
-    
+    const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+
     const roleOptions = ["Líder", "Corista", "Músico"];
+
+    const nameCounts = {};
+    (data || []).forEach(m => { if (m && m.nombre) { const k = normalizeKey(m.nombre); nameCounts[k] = (nameCounts[k] || 0) + 1; } });
+    const isDuplicateMember = (m) => m && m.nombre && nameCounts[normalizeKey(m.nombre)] > 1;
+    const duplicateMemberCount = (data || []).filter(isDuplicateMember).length;
+    const visibleMembers = showDuplicatesOnly ? (data || []).filter(isDuplicateMember) : (data || []);
 
     const toggleRole = (role) => {
         if (form.roles.includes(role)) {
@@ -600,16 +618,16 @@ function TeamManager({ data, isAdmin, refresh }) {
         }
     };
 
-    const save = () => { 
-        if (!form.nombre) return alert("Falta el nombre");
+    const save = () => {
+        if (!form.nombre || !form.nombre.trim()) return alert("Falta el nombre");
         if (form.roles.length === 0) return alert("Selecciona al menos un rol");
-        
+
         if (!isEditing) {
-            const exists = (data || []).some(m => m && m.nombre && m.nombre.toLowerCase() === form.nombre.toLowerCase());
-            if (exists) return alert("Este miembro ya existe. Edita el existente.");
+            const exists = (data || []).some(m => m && m.nombre && normalizeKey(m.nombre) === normalizeKey(form.nombre));
+            if (exists) return alert("Este miembro ya existe (con distintas mayúsculas/minúsculas cuenta como el mismo). Edita el existente.");
         }
 
-        const payload = { ...form, rol: form.roles.join(', ') };
+        const payload = { ...form, nombre: form.nombre.trim(), rol: form.roles.join(', ') };
 
         callGasApi('saveMember', payload, '1234').then(() => { 
             setForm({ id: '', nombre: '', roles: [], instrumento: '' }); 
@@ -652,13 +670,21 @@ function TeamManager({ data, isAdmin, refresh }) {
                 </div>
             ` : html`<div className="p-3 bg-slate-900 rounded-xl text-center text-slate-500 text-xs italic"><${Icon.Lock} /> Gestión Restringida</div>`}
             
+            ${duplicateMemberCount > 0 && html`
+                <div className="flex justify-end">
+                    <button onClick=${() => setShowDuplicatesOnly(!showDuplicatesOnly)} className=${`text-[10px] font-bold px-2 py-1 rounded-lg border ${showDuplicatesOnly ? 'bg-red-600 text-white border-red-500' : 'bg-red-950/60 text-red-400 border-red-800'}`}>
+                        ⚠ ${duplicateMemberCount} duplicados${showDuplicatesOnly ? ' ✕' : ''}
+                    </button>
+                </div>
+            `}
+
             <div className="space-y-2 pb-10">
-                ${(data || []).map(m => html`
-                    <div key=${m.id} className="glass p-3 rounded-xl flex justify-between items-center">
+                ${visibleMembers.map(m => html`
+                    <div key=${m.id} className=${`glass p-3 rounded-xl flex justify-between items-center ${isDuplicateMember(m) ? 'border border-red-800 bg-red-950/20' : ''}`}>
                         <div className="flex items-center gap-3">
                             <div className=${`w-1 h-8 rounded-full ${m.rol && m.rol.includes('Líder') ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
                             <div>
-                                <div className="font-bold text-sm text-white">${m.nombre}</div>
+                                <div className="font-bold text-sm text-white">${m.nombre} ${isDuplicateMember(m) && html`<span className="text-[8px] text-red-400 font-bold uppercase align-middle ml-1">⚠ Duplicado</span>`}</div>
                                 <div className="text-[10px] text-slate-400 uppercase">${m.rol}</div>
                                 <div className="text-[9px] text-slate-500 italic">${m.instrumento}</div>
                             </div>
@@ -1001,8 +1027,6 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     `;
 }
 
-const normalizeTitle = (t) => (t || '').trim().toUpperCase().replace(/\s+/g, ' ');
-
 function SongLibraryView({ data, teamData, isAdmin, refresh }) {
     const [search, setSearch] = useState('');
     const [filterTipo, setFilterTipo] = useState('TODOS');
@@ -1015,8 +1039,8 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
     const uniqueVocalists = [...new Set((teamData || []).filter(e => e && e.rol && (e.rol.includes('Líder') || e.rol.includes('Corista'))).map(e => e.nombre))].sort();
 
     const titleCounts = {};
-    (data || []).forEach(s => { if (s && s.titulo) { const k = normalizeTitle(s.titulo); titleCounts[k] = (titleCounts[k] || 0) + 1; } });
-    const isDuplicate = (s) => s && s.titulo && titleCounts[normalizeTitle(s.titulo)] > 1;
+    (data || []).forEach(s => { if (s && s.titulo) { const k = normalizeKey(s.titulo); titleCounts[k] = (titleCounts[k] || 0) + 1; } });
+    const isDuplicate = (s) => s && s.titulo && titleCounts[normalizeKey(s.titulo)] > 1;
     const duplicateCount = (data || []).filter(isDuplicate).length;
 
     const filtered = (data || []).filter(s => {
@@ -1049,11 +1073,11 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
         if (!titulo) return alert("Falta el título");
 
         if (!formSong.id) {
-            const dup = (data || []).find(s => s && s.titulo && normalizeTitle(s.titulo) === normalizeTitle(titulo));
+            const dup = (data || []).find(s => s && s.titulo && normalizeKey(s.titulo) === normalizeKey(titulo));
             if (dup) return alert(`Ya existe "${dup.titulo}" en la biblioteca (con distintas mayúsculas/minúsculas cuenta como la misma canción). Edítala en vez de crear una nueva para no duplicarla.`);
         }
 
-        callGasApi('saveSong', { ...formSong, titulo: titulo.toUpperCase() }, '1234').then(() => { closeForm(); refresh(); });
+        callGasApi('saveSong', { ...formSong, titulo: titulo.toUpperCase(), vocalista: resolveTeamName(formSong.vocalista, teamData) }, '1234').then(() => { closeForm(); refresh(); });
     };
 
     const deleteSong = (s) => {
@@ -1234,7 +1258,7 @@ function App() {
         
         const isNew = !srv.id;
         const tempId = "TEMP-" + Date.now();
-        const serviceToSave = { ...srv, id: srv.id || tempId };
+        const serviceToSave = { ...srv, id: srv.id || tempId, lider: resolveTeamName(srv.lider, data.equipo) };
 
         const res = await callGasApi('saveService', serviceToSave, '1234');
         if (res && res.status === 'success') {
