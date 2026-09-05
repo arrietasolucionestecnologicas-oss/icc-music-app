@@ -318,32 +318,43 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
         }
     };
 
+    const findExistingByTitle = (titulo) => (data || []).find(s => s && s.titulo && s.titulo.trim().toLowerCase() === titulo.trim().toLowerCase());
+
     const handleSave = () => {
         const validRows = rows.filter(r => r.titulo && r.titulo.trim() !== "");
         if (validRows.length === 0) return alert("Agrega al menos una canción");
-        
-        const toCreate = validRows.filter(r => r.isNew).map(r => ({ 
-            titulo: r.titulo.toUpperCase(), 
-            vocalista: r.vocalista || "", 
-            tipo: r.tipo || "", 
-            estilo: r.estilo || "", 
-            tono: r.tono || "", 
-            link: r.link || "", 
-            letra: '' 
+
+        // Evita duplicar una canción que ya existe con otra combinación de mayúsculas/minúsculas.
+        const resolvedRows = validRows.map(r => {
+            if (r.isNew) {
+                const match = findExistingByTitle(r.titulo);
+                if (match) return { ...r, isNew: false, dbId: match.id, titulo: match.titulo };
+            }
+            return r;
+        });
+
+        const toCreate = resolvedRows.filter(r => r.isNew).map(r => ({
+            titulo: r.titulo.trim().toUpperCase(),
+            vocalista: r.vocalista || "",
+            tipo: r.tipo || "",
+            estilo: r.estilo || "",
+            tono: r.tono || "",
+            link: r.link || "",
+            letra: ''
         }));
-        
+
         if (toCreate.length > 0) callGasApi('saveSongsBatch', toCreate);
 
-        const mappedSongs = validRows.map(r => ({
+        const mappedSongs = resolvedRows.map(r => ({
             id: r.dbId || "TEMP-" + Date.now() + Math.random(),
-            titulo: r.titulo.toUpperCase(),
+            titulo: r.isNew ? r.titulo.trim().toUpperCase() : r.titulo,
             vocalista: r.vocalista || "",
-            ritmo: r.tipo || "", 
+            ritmo: r.tipo || "",
             estilo: r.estilo || "",
             tono: r.tono || "",
             link: r.link || ""
         }));
-        
+
         onAddSongs(mappedSongs);
         onClose();
     };
@@ -990,9 +1001,12 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     `;
 }
 
+const normalizeTitle = (t) => (t || '').trim().toUpperCase().replace(/\s+/g, ' ');
+
 function SongLibraryView({ data, teamData, isAdmin, refresh }) {
     const [search, setSearch] = useState('');
     const [filterTipo, setFilterTipo] = useState('TODOS');
+    const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
     const [expandedId, setExpandedId] = useState(null);
     const [formSong, setFormSong] = useState(null);
 
@@ -1000,8 +1014,14 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
     const uniqueVocalists = [...new Set((teamData || []).filter(e => e && e.rol && (e.rol.includes('Líder') || e.rol.includes('Corista'))).map(e => e.nombre))].sort();
 
+    const titleCounts = {};
+    (data || []).forEach(s => { if (s && s.titulo) { const k = normalizeTitle(s.titulo); titleCounts[k] = (titleCounts[k] || 0) + 1; } });
+    const isDuplicate = (s) => s && s.titulo && titleCounts[normalizeTitle(s.titulo)] > 1;
+    const duplicateCount = (data || []).filter(isDuplicate).length;
+
     const filtered = (data || []).filter(s => {
         if (!s || !s.titulo) return false;
+        if (showDuplicatesOnly) return isDuplicate(s);
         const tipoVal = s.tipo || s.ritmo || '';
         if (filterTipo !== 'TODOS' && tipoVal !== filterTipo) return false;
         if (search.trim()) {
@@ -1025,8 +1045,15 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
     const closeForm = () => setFormSong(null);
 
     const saveSong = () => {
-        if (!formSong.titulo || formSong.titulo.trim() === '') return alert("Falta el título");
-        callGasApi('saveSong', { ...formSong, titulo: formSong.titulo.toUpperCase() }, '1234').then(() => { closeForm(); refresh(); });
+        const titulo = (formSong.titulo || '').trim();
+        if (!titulo) return alert("Falta el título");
+
+        if (!formSong.id) {
+            const dup = (data || []).find(s => s && s.titulo && normalizeTitle(s.titulo) === normalizeTitle(titulo));
+            if (dup) return alert(`Ya existe "${dup.titulo}" en la biblioteca (con distintas mayúsculas/minúsculas cuenta como la misma canción). Edítala en vez de crear una nueva para no duplicarla.`);
+        }
+
+        callGasApi('saveSong', { ...formSong, titulo: titulo.toUpperCase() }, '1234').then(() => { closeForm(); refresh(); });
     };
 
     const deleteSong = (s) => {
@@ -1068,10 +1095,17 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
                 </div>
                 <div className="flex overflow-x-auto gap-2 pb-1 -mx-4 px-4">
                     ${['TODOS', ...tipos].map(t => html`
-                        <button onClick=${() => setFilterTipo(t)} className=${`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition ${filterTipo === t ? 'bg-yellow-600 text-black' : 'bg-slate-800 text-slate-400'}`}>${t}</button>
+                        <button onClick=${() => { setFilterTipo(t); setShowDuplicatesOnly(false); }} className=${`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition ${!showDuplicatesOnly && filterTipo === t ? 'bg-yellow-600 text-black' : 'bg-slate-800 text-slate-400'}`}>${t}</button>
                     `)}
                 </div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold mt-2">${filtered.length} canción${filtered.length === 1 ? '' : 'es'} en la biblioteca</div>
+                <div className="flex items-center justify-between mt-2">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">${filtered.length} canción${filtered.length === 1 ? '' : 'es'} en la biblioteca</div>
+                    ${duplicateCount > 0 && html`
+                        <button onClick=${() => setShowDuplicatesOnly(!showDuplicatesOnly)} className=${`text-[10px] font-bold px-2 py-1 rounded-lg border ${showDuplicatesOnly ? 'bg-red-600 text-white border-red-500' : 'bg-red-950/60 text-red-400 border-red-800'}`}>
+                            ⚠ ${duplicateCount} duplicadas${showDuplicatesOnly ? ' ✕' : ''}
+                        </button>
+                    `}
+                </div>
             </div>
 
             ${filtered.length === 0 && html`<div className="text-center text-slate-500 text-sm py-10">No hay canciones que coincidan.</div>`}
@@ -1082,7 +1116,7 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
                         <div className="text-yellow-500 font-bold text-xs bg-[#020617] py-1">${letter}</div>
                         <div className="space-y-1.5 mt-1">
                             ${grouped[letter].map(s => html`
-                                <div key=${s.id} className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+                                <div key=${s.id} className=${`rounded-xl border overflow-hidden ${isDuplicate(s) ? 'border-red-800 bg-red-950/20' : 'border-slate-800 bg-slate-900/50'}`}>
                                     <div className="flex items-center justify-between p-3 cursor-pointer active:bg-slate-800" onClick=${() => setExpandedId(expandedId === s.id ? null : s.id)}>
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div className="text-yellow-500 shrink-0"><${Icon.Music}/></div>
@@ -1091,7 +1125,10 @@ function SongLibraryView({ data, teamData, isAdmin, refresh }) {
                                                 <div className="text-[10px] text-slate-500 truncate">${s.vocalista || 'Sin vocalista'}${s.tono ? ` • Tono: ${getBestTone(s.tono, 'General')}` : ''}</div>
                                             </div>
                                         </div>
-                                        <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800 shrink-0 ml-2">${s.estilo || s.tipo || 'Gral'}</div>
+                                        <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                                            <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800">${s.estilo || s.tipo || 'Gral'}</div>
+                                            ${isDuplicate(s) && html`<div className="text-[8px] text-red-400 font-bold uppercase">⚠ Duplicada</div>`}
+                                        </div>
                                     </div>
                                     ${expandedId === s.id && html`
                                         <div className="px-3 pb-3 pt-0 border-t border-slate-800/70 space-y-2">
