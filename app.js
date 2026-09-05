@@ -243,23 +243,28 @@ function SearchableUserSelect({ allUsers, selectedUsers, onAdd, onRemove, placeh
 // ================= 5. COMPONENTES LÓGICOS =================
 
 function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
-    const [activeTab, setActiveTab] = useState('Rápida'); 
+    const [activeTab, setActiveTab] = useState('TODOS');
     const [filterVocalist, setFilterVocalist] = useState('TODOS');
+    const [librarySearch, setLibrarySearch] = useState('');
     const [rows, setRows] = useState([{ id: Date.now(), titulo: '', vocalista: '', tipo: 'Rápida', estilo: '', tono: '', link: '', isNew: true }]);
     const [suggestions, setSuggestions] = useState({});
 
     const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
     const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
-    
+
     const uniqueVocalists = [...new Set((teamData || []).filter(e => e && e.rol && (e.rol.includes('Líder') || e.rol.includes('Corista'))).map(e => e.nombre))].sort();
 
     const tabSongs = (data || []).filter(s => {
         if(!s) return false;
-        const matchType = s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta'); 
+        const matchType = activeTab === 'TODOS' || s.tipo === activeTab || (activeTab === 'Rápida' && s.ritmo === 'Rápida') || (activeTab === 'Lenta' && s.ritmo === 'Lenta');
         if (!matchType) return false;
-        if (filterVocalist !== 'TODOS') return s.vocalista && s.vocalista.includes(filterVocalist);
+        if (filterVocalist !== 'TODOS' && !(s.vocalista && s.vocalista.includes(filterVocalist))) return false;
+        if (librarySearch.trim()) {
+            const q = librarySearch.trim().toLowerCase();
+            if (!(s.titulo || '').toLowerCase().includes(q) && !(s.vocalista || '').toLowerCase().includes(q)) return false;
+        }
         return true;
-    }).sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "")); 
+    }).sort((a, b) => (a.titulo || "").localeCompare(b.titulo || ""));
 
     const handleSearch = (id, val) => {
         const newRows = rows.map(r => r.id === id ? { ...r, titulo: val, isNew: true } : r);
@@ -290,7 +295,7 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
     };
 
     const updateRow = (id, field, val) => setRows(rows.map(r => r.id === id ? { ...r, [field]: val } : r));
-    const addRow = () => setRows([...rows, { id: Date.now() + rows.length, titulo: '', vocalista: '', tipo: activeTab, estilo: '', tono: '', link: '', isNew: true }]);
+    const addRow = () => setRows([...rows, { id: Date.now() + rows.length, titulo: '', vocalista: '', tipo: tipos.includes(activeTab) ? activeTab : 'Rápida', estilo: '', tono: '', link: '', isNew: true }]);
     const removeRow = (id) => rows.length > 1 && setRows(rows.filter(r => r.id !== id));
 
     const handleSelectFromList = (song) => {
@@ -385,8 +390,11 @@ function RepertoirePlanner({ data, teamData, onAddSongs, onClose }) {
             </div>
 
             <div className="shrink-0 bg-slate-900/50 border-b border-slate-800">
+                <div className="px-4 pt-2">
+                    <input className="input-dark text-xs" placeholder="Buscar en la biblioteca..." value=${librarySearch} onInput=${e => setLibrarySearch(e.target.value)} />
+                </div>
                 <div className="flex overflow-x-auto p-2 gap-2">
-                    ${tipos.map(t => html`
+                    ${['TODOS', ...tipos].map(t => html`
                         <button onClick=${() => { setActiveTab(t); setSuggestions({}); }} className=${`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${activeTab === t ? 'bg-yellow-600 text-black shadow-lg scale-105' : 'bg-slate-800 text-slate-400'}`}>
                             ${t}
                         </button>
@@ -982,6 +990,139 @@ function MaintenanceView({ data, isAdmin, refresh }) {
     `;
 }
 
+function SongLibraryView({ data, teamData, isAdmin, refresh }) {
+    const [search, setSearch] = useState('');
+    const [filterTipo, setFilterTipo] = useState('TODOS');
+    const [expandedId, setExpandedId] = useState(null);
+    const [formSong, setFormSong] = useState(null);
+
+    const tipos = ["Rápida", "Lenta", "Ministración", "Eventos", "Matrimonio"];
+    const estilos = ["Pop", "Rock", "Balada", "Cumbia", "Salsa", "Merengue", "Marcha", "Reggae", "Adoración", "Júbilo", "Urbano"];
+    const uniqueVocalists = [...new Set((teamData || []).filter(e => e && e.rol && (e.rol.includes('Líder') || e.rol.includes('Corista'))).map(e => e.nombre))].sort();
+
+    const filtered = (data || []).filter(s => {
+        if (!s || !s.titulo) return false;
+        const tipoVal = s.tipo || s.ritmo || '';
+        if (filterTipo !== 'TODOS' && tipoVal !== filterTipo) return false;
+        if (search.trim()) {
+            const q = search.trim().toLowerCase();
+            return s.titulo.toLowerCase().includes(q) || (s.vocalista || '').toLowerCase().includes(q);
+        }
+        return true;
+    }).sort((a, b) => (a.titulo || "").localeCompare(b.titulo || ""));
+
+    const grouped = {};
+    filtered.forEach(s => {
+        const first = (s.titulo || '').trim().charAt(0).toUpperCase();
+        const key = /[A-ZÁÉÍÓÚÑ]/.test(first) ? first : '#';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(s);
+    });
+    const letters = Object.keys(grouped).sort();
+
+    const openNew = () => setFormSong({ id: '', titulo: '', vocalista: '', tipo: 'Rápida', estilo: '', tono: '', link: '', letra: '' });
+    const openEdit = (s) => setFormSong({ ...s });
+    const closeForm = () => setFormSong(null);
+
+    const saveSong = () => {
+        if (!formSong.titulo || formSong.titulo.trim() === '') return alert("Falta el título");
+        callGasApi('saveSong', { ...formSong, titulo: formSong.titulo.toUpperCase() }, '1234').then(() => { closeForm(); refresh(); });
+    };
+
+    const deleteSong = (s) => {
+        if (confirm(`¿Eliminar "${s.titulo}" de la biblioteca?`)) {
+            callGasApi('deleteSong', { id: s.id }, '1234').then(refresh);
+        }
+    };
+
+    return html`
+        <div className="pb-24 fade-in">
+            ${formSong && html`
+                <div className="fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-4 fade-in">
+                    <div className="glass-gold p-5 rounded-2xl w-full max-w-sm space-y-3 max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-white font-bold mb-1">${formSong.id ? 'Editar Canción' : 'Nueva Canción'}</h3>
+                        <input className="input-dark" placeholder="Título" value=${formSong.titulo} onInput=${e => setFormSong({...formSong, titulo: e.target.value})} />
+                        <input className="input-dark" list="lib-vocalists-list" placeholder="Vocalista" value=${formSong.vocalista} onInput=${e => setFormSong({...formSong, vocalista: e.target.value})} />
+                        <datalist id="lib-vocalists-list">${uniqueVocalists.map(v => html`<option value=${v} />`)}</datalist>
+                        <div className="grid grid-cols-2 gap-2">
+                            <select className="input-dark" value=${formSong.tipo} onChange=${e => setFormSong({...formSong, tipo: e.target.value})}>${tipos.map(t => html`<option value=${t}>${t}</option>`)}</select>
+                            <select className="input-dark" value=${formSong.estilo} onChange=${e => setFormSong({...formSong, estilo: e.target.value})}><option value="">Estilo...</option>${estilos.map(es => html`<option value=${es}>${es}</option>`)}</select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <input className="input-dark" placeholder="Tono" value=${formSong.tono} onInput=${e => setFormSong({...formSong, tono: e.target.value})} />
+                            <input className="input-dark" placeholder="Link (YouTube...)" value=${formSong.link} onInput=${e => setFormSong({...formSong, link: e.target.value})} />
+                        </div>
+                        <textarea className="input-dark min-h-[70px]" placeholder="Letra (opcional)" value=${formSong.letra} onInput=${e => setFormSong({...formSong, letra: e.target.value})}></textarea>
+                        <div className="flex gap-2 pt-1">
+                            <button onClick=${closeForm} className="flex-1 py-3 bg-slate-800 rounded-xl text-slate-400">Cancelar</button>
+                            <button onClick=${saveSong} className="flex-1 py-3 bg-yellow-600 rounded-xl text-black font-bold">Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            `}
+
+            <div className="mb-3">
+                <div className="relative mb-2">
+                    <input className="input-dark pl-9" placeholder="Buscar canción o vocalista..." value=${search} onInput=${e => setSearch(e.target.value)} />
+                    <div className="absolute left-3 top-3 text-slate-500 text-sm">🔍</div>
+                </div>
+                <div className="flex overflow-x-auto gap-2 pb-1 -mx-4 px-4">
+                    ${['TODOS', ...tipos].map(t => html`
+                        <button onClick=${() => setFilterTipo(t)} className=${`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition ${filterTipo === t ? 'bg-yellow-600 text-black' : 'bg-slate-800 text-slate-400'}`}>${t}</button>
+                    `)}
+                </div>
+                <div className="text-[10px] text-slate-500 uppercase font-bold mt-2">${filtered.length} canción${filtered.length === 1 ? '' : 'es'} en la biblioteca</div>
+            </div>
+
+            ${filtered.length === 0 && html`<div className="text-center text-slate-500 text-sm py-10">No hay canciones que coincidan.</div>`}
+
+            <div className="space-y-4">
+                ${letters.map(letter => html`
+                    <div key=${letter}>
+                        <div className="text-yellow-500 font-bold text-xs bg-[#020617] py-1">${letter}</div>
+                        <div className="space-y-1.5 mt-1">
+                            ${grouped[letter].map(s => html`
+                                <div key=${s.id} className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+                                    <div className="flex items-center justify-between p-3 cursor-pointer active:bg-slate-800" onClick=${() => setExpandedId(expandedId === s.id ? null : s.id)}>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="text-yellow-500 shrink-0"><${Icon.Music}/></div>
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-bold text-white truncate">${s.titulo}</div>
+                                                <div className="text-[10px] text-slate-500 truncate">${s.vocalista || 'Sin vocalista'}${s.tono ? ` • Tono: ${getBestTone(s.tono, 'General')}` : ''}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[9px] bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800 shrink-0 ml-2">${s.estilo || s.tipo || 'Gral'}</div>
+                                    </div>
+                                    ${expandedId === s.id && html`
+                                        <div className="px-3 pb-3 pt-0 border-t border-slate-800/70 space-y-2">
+                                            <div className="flex flex-wrap gap-2 text-[10px] text-slate-400 pt-2">
+                                                <span className="bg-slate-800 px-2 py-0.5 rounded">${s.tipo || 'Sin tipo'}</span>
+                                                ${s.tono && html`<span className="bg-slate-800 px-2 py-0.5 rounded">Tono: ${getBestTone(s.tono, 'General')}</span>`}
+                                            </div>
+                                            ${s.letra && html`<div className="text-xs text-slate-300 whitespace-pre-line bg-slate-950/60 p-2 rounded max-h-40 overflow-y-auto">${s.letra}</div>`}
+                                            <div className="flex gap-2 pt-1">
+                                                ${s.link && html`<a href=${s.link} target="_blank" rel="noopener noreferrer" onClick=${e => e.stopPropagation()} className="flex-1 text-center text-[11px] bg-blue-900/40 text-blue-400 py-2 rounded-lg border border-blue-500/30 font-bold">▶ Abrir enlace</a>`}
+                                                ${isAdmin && html`<button onClick=${(e) => {e.stopPropagation(); openEdit(s);}} className="px-3 bg-slate-800 text-slate-300 rounded-lg text-[11px]"><${Icon.Edit}/></button>`}
+                                                ${isAdmin && html`<button onClick=${(e) => {e.stopPropagation(); deleteSong(s);}} className="px-3 bg-slate-800 text-red-400 rounded-lg text-[11px]"><${Icon.Trash}/></button>`}
+                                            </div>
+                                        </div>
+                                    `}
+                                </div>
+                            `)}
+                        </div>
+                    </div>
+                `)}
+            </div>
+
+            ${isAdmin && html`
+                <button onClick=${openNew} className="fixed bottom-6 right-6 bg-yellow-600 text-black w-14 h-14 rounded-full shadow-2xl flex items-center justify-center z-40 btn-active">
+                    <${Icon.Plus}/>
+                </button>
+            `}
+        </div>
+    `;
+}
+
 // ================= 7. APP PRINCIPAL =================
 
 function App() {
@@ -1105,7 +1246,7 @@ function App() {
             ${serviceDetail && html`<${ServiceDetailModal} service=${serviceDetail} teamData=${data.equipo || []} onClose=${() => setServiceDetail(null)} />`}
             ${!localStorage.getItem('icc_tutorial_seen') && html`<${Manual} onClose=${() => localStorage.setItem('icc_tutorial_seen', 'true')} />`}
             
-            ${view !== 'HOME' && html`<div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur border-b border-white/5 p-4 flex items-center shadow-lg"><button onClick=${() => setView('HOME')} className="bg-slate-800 p-2 rounded-full mr-3 text-slate-300 btn-active"><${Icon.ArrowLeft} /></button><h2 className="font-bold text-white uppercase tracking-wider text-sm">${view === 'TEAM' ? 'Equipo' : view}</h2></div>`}
+            ${view !== 'HOME' && html`<div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur border-b border-white/5 p-4 flex items-center shadow-lg"><button onClick=${() => setView('HOME')} className="bg-slate-800 p-2 rounded-full mr-3 text-slate-300 btn-active"><${Icon.ArrowLeft} /></button><h2 className="font-bold text-white uppercase tracking-wider text-sm">${view === 'TEAM' ? 'Equipo' : view === 'LIBRARY' ? 'Biblioteca' : view}</h2></div>`}
 
             <div className="px-4 pt-6 max-w-lg mx-auto fade-in">
                 ${view === 'HOME' && html`
@@ -1123,9 +1264,14 @@ function App() {
                     />
                     
                     <div className="grid grid-cols-2 gap-3 mb-6"><button onClick=${() => setView('POSTER')} className="glass-gold p-4 rounded-xl flex flex-col items-center gap-2 btn-active"><${Icon.Calendar} /><span className="font-bold text-xs text-yellow-100">Cronograma</span></button><button onClick=${() => setView('HISTORY')} className="glass p-4 rounded-xl flex flex-col items-center gap-2 btn-active hover:bg-slate-800 border border-slate-700"><${Icon.History} /><span className="font-bold text-xs text-white">Historial</span></button></div>
-                    <div className="space-y-3"><button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button><button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button></div>
+                    <div className="space-y-3">
+                        <button onClick=${() => setView('LIBRARY')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-yellow-500"><div className="flex items-center gap-4"><div className="text-yellow-500"><${Icon.Music} /></div><div className="text-left"><div className="font-bold text-white text-sm">Biblioteca de Canciones</div><div className="text-[10px] text-slate-400">${(data.canciones||[]).length} canciones registradas</div></div></div></button>
+                        <button onClick=${() => setView('TEAM')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active"><div className="flex items-center gap-4"><div className="text-teal-400"><${Icon.Users} /></div><div className="text-left"><div className="font-bold text-white text-sm">Equipo</div></div></div></button>
+                        <button onClick=${() => setView('MAINTENANCE')} className="w-full glass p-4 rounded-xl flex items-center justify-between btn-active border-l-4 border-l-purple-500"><div className="flex items-center gap-4"><div className="text-purple-400"><${Icon.Wrench} /></div><div className="text-left"><div className="font-bold text-white text-sm">Mantenimiento</div></div></div></button>
+                    </div>
                 `}
                 ${view === 'TEAM' && html`<${TeamManager} data=${data.equipo || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
+                ${view === 'LIBRARY' && html`<${SongLibraryView} data=${data.canciones || []} teamData=${data.equipo || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
                 ${view === 'SERVICE_EDITOR' && html`<${ServiceEditor} service=${currentService} data=${data} isAdmin=${isAdmin} onSave=${handleSaveService} onDelete=${handleDeleteService} onCancel=${() => setView('HOME')} onViewDetail=${(s)=>setServiceDetail(s)} />`}
                 ${view === 'POSTER' && html`<${MonthPoster} servicios=${data.servicios || []} />`}
                 ${view === 'MAINTENANCE' && html`<${MaintenanceView} data=${data.equiposMant || []} isAdmin=${isAdmin} refresh=${fetchData} />`}
